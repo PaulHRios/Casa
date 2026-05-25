@@ -3,18 +3,29 @@
    • Carga plano_light.glb (orientado, en metros)
    • Preserva materiales originales (colores + transparencia)
    • Parcha clippingPlanes para el slider de corte de sección
+   • CSS2DRenderer para etiquetas de cuartos
+   • PointerLockControls para modo caminar (primera persona)
+   • Pantalla completa, vistas extendidas, persistencia localStorage
 ══════════════════════════════════════════════════════════ */
 
 import * as THREE from 'three';
-import { OrbitControls }   from 'three/addons/controls/OrbitControls.js';
-import { OBJLoader }       from 'three/addons/loaders/OBJLoader.js';
-import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
-import { MTLLoader }       from 'three/addons/loaders/MTLLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader }        from 'three/addons/loaders/OBJLoader.js';
+import { GLTFLoader }       from 'three/addons/loaders/GLTFLoader.js';
+import { MTLLoader }        from 'three/addons/loaders/MTLLoader.js';
+import { RoomEnvironment }  from 'three/addons/environments/RoomEnvironment.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
-const MODEL_URL     = 'assets/models/plano_light.glb';
-const FALLBACK_URL  = 'assets/models/dibujo-3d.glb';
-const INCH_TO_M     = 0.0254;   // solo para el GLB de respaldo (en pulgadas)
+const MODEL_URL    = 'assets/models/plano_light.glb';
+const FALLBACK_URL = 'assets/models/dibujo-3d.glb';
+const INCH_TO_M    = 0.0254;   // solo para el GLB de respaldo (en pulgadas)
+
+/* ── localStorage helper ── */
+const store = {
+  get(k, def) { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } },
+  set(k, v)   { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
 
 const container  = document.getElementById('canvas-3d');
 const loaderEl   = document.getElementById('model-loader');
@@ -36,11 +47,18 @@ renderer.toneMappingExposure = 1.0;
 renderer.localClippingEnabled = true;
 container.appendChild(renderer.domElement);
 
+/* ── CSS2DRenderer para etiquetas de cuartos ── */
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRenderer.domElement);
+
 /* ── Plano de corte horizontal (section cut) ── */
-/* normal (0,-1,0): mantiene lo que esté POR DEBAJO del valor constant */
 const sectionPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
 
-/* ── Material de respaldo (solo si el mesh no tiene material) ── */
+/* ── Material de respaldo ── */
 const defaultMat = new THREE.MeshStandardMaterial({
   color: 0xd0c8bb, roughness: 0.7, metalness: 0.04,
   side: THREE.DoubleSide,
@@ -89,11 +107,28 @@ controls.screenSpacePanning = false;
 controls.maxPolarAngle    = Math.PI / 2 + 0.08;
 controls.target.set(0, 1.5, 0);
 
+/* ── PointerLockControls para modo caminar ── */
+const walkControls = new PointerLockControls(camera, renderer.domElement);
+scene.add(walkControls.getObject());
+
+/* ── Estado de modo caminar ── */
+let walkMode = false;
+const walkKeys = { w: false, a: false, s: false, d: false,
+                   ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+const walkVelocity = new THREE.Vector3();
+const WALK_SPEED = 5.0;
+
+/* ── Grupo de etiquetas de cuartos ── */
+const labelsGroup = new THREE.Group();
+scene.add(labelsGroup);
+labelsGroup.visible = store.get('labels_visible', false);
+
 /* ── Resize ── */
 function resize() {
   const w = container.clientWidth, h = container.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -101,10 +136,48 @@ window.addEventListener('resize', resize);
 resize();
 
 /* ── Render loop ── */
+let prevTime = performance.now();
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
+  const time = performance.now();
+  const delta = (time - prevTime) / 1000;
+  prevTime = time;
+
+  if (walkMode && walkControls.isLocked) {
+    walkVelocity.x -= walkVelocity.x * 10 * delta;
+    walkVelocity.z -= walkVelocity.z * 10 * delta;
+
+    const speed = WALK_SPEED;
+    if (walkKeys.w || walkKeys.ArrowUp)    walkVelocity.z -= speed * delta;
+    if (walkKeys.s || walkKeys.ArrowDown)  walkVelocity.z += speed * delta;
+    if (walkKeys.a || walkKeys.ArrowLeft)  walkVelocity.x -= speed * delta;
+    if (walkKeys.d || walkKeys.ArrowRight) walkVelocity.x += speed * delta;
+
+    walkControls.moveRight(walkVelocity.x * delta * 10);
+    walkControls.moveForward(-walkVelocity.z * delta * 10);
+
+    // Clamp to human height
+    if (camera.position.y < 0.5) camera.position.y = 0.5;
+    if (camera.position.y > 12)  camera.position.y = 12;
+  } else {
+    controls.update();
+  }
+
+  // Virtual joystick walk (mobile)
+  if (walkMode && joystickLeft.active) {
+    const dx = joystickLeft.deltaX * WALK_SPEED * delta;
+    const dz = joystickLeft.deltaY * WALK_SPEED * delta;
+    walkControls.moveRight(dx);
+    walkControls.moveForward(-dz);
+  }
+  if (walkMode && joystickRight.active) {
+    const dx = joystickRight.deltaX * 0.03;
+    const dy = joystickRight.deltaY * 0.03;
+    camera.rotation.y -= dx;
+  }
+
   renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
 }
 animate();
 
@@ -120,20 +193,15 @@ function clearModel() {
   modelMeshes = [];
 }
 
-/* Parchear material preservando colores y transparencia originales */
 function patchMat(m) {
   m.clippingPlanes  = [sectionPlane];
   m.polygonOffset   = true;
   m.polygonOffsetFactor = 1;
   m.polygonOffsetUnits  = 1;
-  /* Mantener DoubleSide para vidrios y cerramientos; en materiales
-     completamente opacos podrías usar FrontSide, pero DoubleSide
-     funciona bien con el modelo exportado correctamente. */
   m.side = THREE.DoubleSide;
-  /* Asegurar que materiales con alpha < 1 tengan transparent=true */
   if (m.opacity !== undefined && m.opacity < 0.99) {
     m.transparent = true;
-    m.depthWrite  = false;   // sin artefactos de transparencia
+    m.depthWrite  = false;
   }
   m.needsUpdate = true;
 }
@@ -161,7 +229,6 @@ function processModel(object3d, scaleToMeters) {
     modelMeshes.push(child);
   });
 
-  /* Centrar horizontalmente y apoyar en Y=0 */
   const box    = new THREE.Box3().setFromObject(object3d);
   const center = box.getCenter(new THREE.Vector3());
   const size   = box.getSize(new THREE.Vector3());
@@ -176,7 +243,6 @@ function processModel(object3d, scaleToMeters) {
   modelRadius = 0.5 * Math.hypot(size.x, size.y, size.z) || 15;
   grid.scale.setScalar(Math.max(size.x, size.z) * 2.4 / 100);
 
-  /* ── Slider de corte ── */
   const maxH = +(size.y * 1.05).toFixed(2);
   sectionSlider.max   = maxH;
   sectionSlider.value = maxH;
@@ -184,11 +250,19 @@ function processModel(object3d, scaleToMeters) {
   updateSectionLabel(maxH, maxH);
   document.getElementById('section-bar').style.display = 'flex';
 
-  setView('iso');
+  // Restore camera state from localStorage
+  const savedCam = store.get('cam_state', null);
+  if (savedCam) {
+    camera.position.set(savedCam.px, savedCam.py, savedCam.pz);
+    controls.target.set(savedCam.tx, savedCam.ty, savedCam.tz);
+    controls.update();
+  } else {
+    setView('iso');
+  }
+
   loaderEl.classList.add('hidden');
 }
 
-/* ── Carga del modelo principal ── */
 function loadGLB(url, scaleToMeters = false) {
   new GLTFLoader().load(
     url,
@@ -200,13 +274,19 @@ function loadGLB(url, scaleToMeters = false) {
     },
     err => {
       console.warn('GLB falló, cargando respaldo…', err);
-      if (url !== FALLBACK_URL) loadGLB(FALLBACK_URL, true);
-      else loaderEl.querySelector('p').textContent = 'No se pudo cargar el modelo.';
+      if (url !== FALLBACK_URL) {
+        loadGLB(FALLBACK_URL, true);
+      } else {
+        const p = loaderEl.querySelector('p');
+        p.textContent = 'No se pudo cargar el modelo.';
+        p.style.color = '#ff6b6b';
+        p.style.fontWeight = '600';
+        loaderEl.querySelector('.spinner').style.display = 'none';
+      }
     }
   );
 }
 
-/* ── Subida manual de archivo ── */
 function loadFromFile(file) {
   loaderEl.classList.remove('hidden');
   loaderEl.querySelector('p').textContent = 'Cargando…';
@@ -265,10 +345,16 @@ function setView(kind) {
   }
   controls.target.copy(c);
   switch (kind) {
-    case 'top':   camera.position.set(c.x, c.y + r,          c.z + 0.001); break;
-    case 'front': camera.position.set(c.x, c.y + r * 0.18,   c.z + r);     break;
-    case 'side':  camera.position.set(c.x + r, c.y + r * 0.18, c.z);       break;
-    default:      camera.position.set(c.x + r * 0.7, c.y + r * 0.5, c.z + r * 0.7);
+    case 'top':      camera.position.set(c.x, c.y + r,          c.z + 0.001); break;
+    case 'front':    camera.position.set(c.x, c.y + r * 0.18,   c.z + r);     break;
+    case 'side':     camera.position.set(c.x + r, c.y + r * 0.18, c.z);       break;
+    case 'left':     camera.position.set(c.x - r, c.y + r * 0.18, c.z);       break;
+    case 'interior':
+      exitWalkMode();
+      camera.position.set(0, 1.7, 0);
+      controls.target.set(0, 1.7, -3);
+      break;
+    default:         camera.position.set(c.x + r * 0.7, c.y + r * 0.5, c.z + r * 0.7);
   }
   controls.update();
 }
@@ -281,6 +367,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   sectionPlane.constant = parseFloat(sectionSlider.max);
   updateSectionLabel(sectionSlider.max, sectionSlider.max);
   setView('iso');
+  store.set('cam_state', null);
 });
 
 /* ── Wireframe ── */
@@ -293,6 +380,212 @@ document.getElementById('btn-wire').addEventListener('click', () => {
     mats.forEach(mat => { mat.wireframe = wireOn; });
   });
 });
+
+/* ══════════════════════════════════════
+   ETIQUETAS DE CUARTOS (CSS2DRenderer)
+══════════════════════════════════════ */
+let roomsData = [];
+
+async function loadRoomLabels() {
+  try {
+    const resp = await fetch('assets/rooms.json');
+    if (!resp.ok) return;
+    roomsData = await resp.json();
+
+    // Clear existing labels
+    while (labelsGroup.children.length) labelsGroup.remove(labelsGroup.children[0]);
+
+    roomsData.forEach(room => {
+      const div = document.createElement('div');
+      div.className = 'room-label';
+      div.innerHTML = `<span class="room-icon">${room.icon}</span><span class="room-name">${room.name}</span>`;
+
+      const obj = new CSS2DObject(div);
+      obj.position.set(room.x, room.y, room.z);
+      obj.userData.roomId = room.id;
+      labelsGroup.add(obj);
+    });
+
+    // Restore visible state
+    labelsGroup.visible = store.get('labels_visible', false);
+    const btnLabels = document.getElementById('btn-labels');
+    if (btnLabels) btnLabels.classList.toggle('active', labelsGroup.visible);
+
+    // Populate rooms panel
+    buildRoomsPanel();
+  } catch (err) {
+    console.warn('[3D] No se pudo cargar rooms.json:', err);
+  }
+}
+
+function buildRoomsPanel() {
+  const list = document.getElementById('rooms-list');
+  if (!list) return;
+  list.innerHTML = '';
+  roomsData.forEach(room => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${room.icon}</span><span>${room.name}</span>`;
+    li.addEventListener('click', () => focusRoom(room));
+    list.appendChild(li);
+  });
+}
+
+function focusRoom(room) {
+  const target = new THREE.Vector3(room.x, room.y, room.z);
+  controls.target.copy(target);
+  const offset = new THREE.Vector3(room.x + 4, room.y + 3, room.z + 4);
+  camera.position.copy(offset);
+  controls.update();
+}
+
+/* ── Botón etiquetas ── */
+const btnLabels = document.getElementById('btn-labels');
+if (btnLabels) {
+  btnLabels.addEventListener('click', () => {
+    labelsGroup.visible = !labelsGroup.visible;
+    btnLabels.classList.toggle('active', labelsGroup.visible);
+    store.set('labels_visible', labelsGroup.visible);
+
+    const panel = document.getElementById('rooms-panel');
+    if (panel) panel.classList.toggle('hidden', !labelsGroup.visible);
+  });
+}
+
+/* ── Panel de cuartos ── */
+const roomsPanel = document.getElementById('rooms-panel');
+const roomsPanelClose = document.getElementById('rooms-panel-close');
+const btnViewAllRooms = document.getElementById('btn-view-all-rooms');
+
+if (roomsPanelClose) {
+  roomsPanelClose.addEventListener('click', () => {
+    roomsPanel.classList.add('hidden');
+  });
+}
+if (btnViewAllRooms) {
+  btnViewAllRooms.addEventListener('click', () => {
+    setView('iso');
+    labelsGroup.visible = true;
+    store.set('labels_visible', true);
+    if (btnLabels) btnLabels.classList.add('active');
+  });
+}
+
+/* ══════════════════════════════════════
+   MODO CAMINAR (primera persona)
+══════════════════════════════════════ */
+const walkOverlay = document.getElementById('walk-overlay');
+const btnWalkExit = document.getElementById('btn-walk-exit');
+const btnWalk     = document.getElementById('btn-walk');
+
+/* Virtual joystick state */
+const joystickLeft  = { active: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 };
+const joystickRight = { active: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 };
+
+function enterWalkMode() {
+  walkMode = true;
+  controls.enabled = false;
+
+  // Set eye height
+  camera.position.y = 1.7;
+
+  walkControls.lock();
+  if (walkOverlay) walkOverlay.classList.remove('hidden');
+  if (btnWalk) btnWalk.classList.add('active');
+}
+
+function exitWalkMode() {
+  walkMode = false;
+  controls.enabled = true;
+  if (walkControls.isLocked) walkControls.unlock();
+  if (walkOverlay) walkOverlay.classList.add('hidden');
+  if (btnWalk) btnWalk.classList.remove('active');
+  walkVelocity.set(0, 0, 0);
+  store.set('walk_mode', false);
+}
+
+if (btnWalk) {
+  btnWalk.addEventListener('click', () => {
+    if (walkMode) exitWalkMode();
+    else enterWalkMode();
+  });
+}
+
+if (btnWalkExit) {
+  btnWalkExit.addEventListener('click', exitWalkMode);
+}
+
+walkControls.addEventListener('unlock', () => {
+  if (walkMode) exitWalkMode();
+});
+
+/* ── WASD / Arrow keys ── */
+document.addEventListener('keydown', e => {
+  if (e.key in walkKeys) { walkKeys[e.key] = true; e.preventDefault(); }
+  if (e.key === 'Escape' && walkMode) exitWalkMode();
+});
+document.addEventListener('keyup', e => {
+  if (e.key in walkKeys) walkKeys[e.key] = false;
+});
+
+/* ── Virtual joystick touch handlers ── */
+function setupJoystick(el, joy) {
+  if (!el) return;
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    joy.active = true;
+    joy.startX = t.clientX;
+    joy.startY = t.clientY;
+    joy.deltaX = 0;
+    joy.deltaY = 0;
+  }, { passive: false });
+  el.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const dx = (t.clientX - joy.startX) / 50;
+    const dy = (t.clientY - joy.startY) / 50;
+    joy.deltaX = Math.max(-1, Math.min(1, dx));
+    joy.deltaY = Math.max(-1, Math.min(1, dy));
+    // Move knob visually
+    const knob = el.querySelector('.walk-joystick-knob');
+    if (knob) {
+      knob.style.transform = `translate(calc(-50% + ${joy.deltaX * 25}px), calc(-50% + ${joy.deltaY * 25}px))`;
+    }
+  }, { passive: false });
+  el.addEventListener('touchend', e => {
+    e.preventDefault();
+    joy.active = false;
+    joy.deltaX = 0;
+    joy.deltaY = 0;
+    const knob = el.querySelector('.walk-joystick-knob');
+    if (knob) knob.style.transform = 'translate(-50%, -50%)';
+  }, { passive: false });
+}
+
+setupJoystick(document.getElementById('walk-joystick-left'), joystickLeft);
+setupJoystick(document.getElementById('walk-joystick-right'), joystickRight);
+
+/* ══════════════════════════════════════
+   PANTALLA COMPLETA
+══════════════════════════════════════ */
+const btnFullscreen3d = document.getElementById('btn-fullscreen-3d');
+if (btnFullscreen3d) {
+  btnFullscreen3d.addEventListener('click', () => {
+    const viewerSection = document.getElementById('section-3d');
+    if (!document.fullscreenElement) {
+      (viewerSection || container).requestFullscreen().catch(e => console.warn('Fullscreen error:', e));
+      btnFullscreen3d.textContent = '✕';
+    } else {
+      document.exitFullscreen();
+      btnFullscreen3d.textContent = '⛶';
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      btnFullscreen3d.textContent = '⛶';
+    }
+  });
+}
 
 /* ══════════════════════════════════════
    MEDICIÓN
@@ -360,5 +653,18 @@ renderer.domElement.addEventListener('pointerdown', ev => {
   }
 }, true);
 
+/* ── Guardar estado de cámara periódicamente ── */
+let camSaveTimer = null;
+controls.addEventListener('change', () => {
+  clearTimeout(camSaveTimer);
+  camSaveTimer = setTimeout(() => {
+    store.set('cam_state', {
+      px: camera.position.x, py: camera.position.y, pz: camera.position.z,
+      tx: controls.target.x, ty: controls.target.y, tz: controls.target.z,
+    });
+  }, 500);
+});
+
 /* ── Iniciar ── */
 loadGLB(MODEL_URL);
+loadRoomLabels();

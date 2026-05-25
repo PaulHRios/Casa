@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Proyecto Casa — Visualizador</title>
   <meta name="description" content="Visualizador interactivo del proyecto: modelo 3D, planos acotados, renders y avance de obra." />
   <link rel="stylesheet" href="css/style.css" />
@@ -39,7 +41,7 @@
 
 <!-- ───── MODELO 3D ───── -->
 <section id="section-3d" class="section active">
-  <div class="viewer-wrap">
+  <div class="viewer-wrap" id="section-3d-wrap">
     <div id="canvas-3d"></div>
 
     <div id="model-loader" class="model-loader">
@@ -51,6 +53,9 @@
       <button id="btn-measure" class="tool-btn" title="Medir distancia entre dos puntos">📏 Medir</button>
       <button id="btn-wire"    class="tool-btn" title="Alternar malla">▦ Malla</button>
       <button id="btn-reset"   class="tool-btn" title="Restablecer vista">🔄 Reset</button>
+      <button id="btn-labels"  class="tool-btn" title="Mostrar etiquetas de cuartos">🏷 Etiquetas</button>
+      <button id="btn-walk"    class="tool-btn" title="Modo caminar (primera persona)">🚶 Caminar</button>
+      <button id="btn-fullscreen-3d" class="tool-btn" title="Pantalla completa">⛶</button>
       <label  class="tool-btn" title="Cargar otro modelo .obj / .glb">
         📂 Cargar
         <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
@@ -71,6 +76,30 @@
       <button class="preset-btn" data-view="top">Planta</button>
       <button class="preset-btn" data-view="front">Frente</button>
       <button class="preset-btn" data-view="side">Lado</button>
+      <button class="preset-btn" data-view="left">Izq</button>
+      <button class="preset-btn" data-view="interior">Interior</button>
+    </div>
+
+    <!-- Walk mode overlay -->
+    <div id="walk-overlay" class="walk-overlay hidden">
+      <div class="walk-info">🚶 Modo Caminar · WASD para moverse · ESC para salir</div>
+      <div id="walk-joystick-left" class="walk-joystick walk-joystick-left">
+        <div class="walk-joystick-knob"></div>
+      </div>
+      <div id="walk-joystick-right" class="walk-joystick walk-joystick-right">
+        <div class="walk-joystick-knob"></div>
+      </div>
+      <button id="btn-walk-exit" class="walk-exit-btn">✕ Salir</button>
+    </div>
+
+    <!-- Rooms panel -->
+    <div id="rooms-panel" class="rooms-panel hidden">
+      <div class="rooms-panel-header">
+        <span>Cuartos</span>
+        <button id="rooms-panel-close" class="rooms-panel-close">✕</button>
+      </div>
+      <ul id="rooms-list" class="rooms-list"></ul>
+      <button id="btn-view-all-rooms" class="rooms-view-all">Ver todos</button>
     </div>
 
     <div class="hint-box">
@@ -92,13 +121,19 @@
     </aside>
     <div class="planos-viewer-wrap">
       <div class="plano-toolbar">
-        <button id="zoom-in"  class="tool-btn">＋ Zoom</button>
-        <button id="zoom-out" class="tool-btn">－ Zoom</button>
-        <button id="zoom-fit" class="tool-btn">⊡ Ajustar</button>
+        <button id="btn-toggle-sidebar" class="tool-btn sidebar-toggle-btn" title="Lista de planos">☰</button>
+        <button id="zoom-in"  class="tool-btn">＋</button>
+        <button id="zoom-out" class="tool-btn">－</button>
+        <button id="zoom-fit" class="tool-btn" title="Ajustar al ancho">⊡ Ajustar</button>
+        <button id="zoom-reset" class="tool-btn" title="Restablecer zoom">⊙</button>
+        <span id="zoom-indicator" class="zoom-indicator">100%</span>
         <span id="plano-name" class="plano-name-label">— ninguno seleccionado —</span>
         <button id="prev-page" class="tool-btn">◀</button>
         <span id="page-info">p. 1 / 1</span>
         <button id="next-page" class="tool-btn">▶</button>
+        <button id="btn-rotate-plano" class="tool-btn" title="Rotar 90°">↻</button>
+        <button id="btn-download-plano" class="tool-btn" title="Descargar plano">⬇</button>
+        <button id="btn-fullscreen-plano" class="tool-btn" title="Pantalla completa">⛶</button>
       </div>
       <div class="plano-canvas-wrap" id="plano-scroll">
         <canvas id="pdf-canvas"></canvas>
@@ -169,6 +204,12 @@
       + Agregar
       <input type="file" id="obra-upload" accept="image/*" multiple hidden />
     </label>
+  </div>
+  <div class="gallery-controls" id="obra-controls">
+    <div class="gallery-filters" id="obra-year-filters"></div>
+    <button class="gallery-sort-btn" id="obra-sort-btn" aria-label="Cambiar orden">
+      <span id="obra-sort-icon">↑</span> <span id="obra-sort-label">Más antiguas primero</span>
+    </button>
   </div>
   <div id="obra-body" class="gallery-body">
     <div id="obra-instrucciones" class="gallery-empty-state">

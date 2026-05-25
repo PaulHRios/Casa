@@ -21,7 +21,7 @@ jobs:
       - name: Instalar Pillow (para EXIF)
         run: pip install Pillow --quiet
 
-      - name: Procesar fotos de obra (renombrar por fecha EXIF)
+      - name: Procesar fotos de obra (renombrar por fecha captura)
         run: |
           python3 - << 'EOF'
           import os, json, re
@@ -37,54 +37,100 @@ jobs:
           OBRA_DIR = Path('assets/photos/obra')
           EXTS     = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 
+          # Regex to extract embedded date from filename like PHOTO-YYYY-MM-DD-HH-MM-SS
+          FILENAME_DATE_RE = re.compile(
+              r'(?:PHOTO|IMG|DSC|foto|image)[-_](\d{4})[-_](\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})',
+              re.IGNORECASE
+          )
+
+          def get_capture_date_from_filename(fname):
+              """Extract capture date from filename (most reliable for WhatsApp/iOS exports)."""
+              m = FILENAME_DATE_RE.search(fname)
+              if m:
+                  y, mo, d = m.group(1), m.group(2), m.group(3)
+                  h, mi, s = m.group(4), m.group(5), m.group(6)
+                  return f'{y}-{mo}-{d}', f'{y}-{mo}-{d}T{h}:{mi}:{s}'
+              return None, None
+
           def get_exif_date(path):
+              """Read EXIF DateTimeOriginal. Returns (date_str, iso_str) or (None, None)."""
               if Image:
                   try:
                       img  = Image.open(path)
                       exif = img._getexif() or {}
                       for tag_id, val in exif.items():
-                          if TAGS.get(tag_id) in ('DateTimeOriginal', 'DateTime'):
+                          tag_name = TAGS.get(tag_id, '')
+                          if tag_name == 'DateTimeOriginal':
                               dt = datetime.strptime(str(val), '%Y:%m:%d %H:%M:%S')
-                              return dt.strftime('%Y-%m-%d')
+                              return dt.strftime('%Y-%m-%d'), dt.strftime('%Y-%m-%dT%H:%M:%S')
                   except Exception:
                       pass
-              mtime = os.path.getmtime(path)
-              return datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+              return None, None
+
+          def get_upload_date():
+              """Today's date = upload date when running in CI."""
+              return datetime.utcnow().strftime('%Y-%m-%d')
 
           if not OBRA_DIR.is_dir():
               print('Carpeta obra/ no existe, se omite.')
               exit(0)
 
-          DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}_')
+          # Pattern for already-renamed files: YYYY-MM-DD_*.ext
+          RENAMED_RE = re.compile(r'^\d{4}-\d{2}-\d{2}_')
           renames = []
 
           for f in sorted(OBRA_DIR.iterdir()):
               if f.suffix.lower() not in EXTS:
                   continue
-              if DATE_RE.match(f.name):
-                  continue
-              date_str  = get_exif_date(f)
-              base_stem = re.sub(r'^(foto|img|dsc|image|photo)[-_]?', '', f.stem, flags=re.I)
-              base_stem = re.sub(r'[-_]+', '-', base_stem).strip('-') or 'foto'
-              new_name  = f'{date_str}_{base_stem}{f.suffix.lower()}'
+              if RENAMED_RE.match(f.name):
+                  continue   # already renamed
+
+              # Step 1: try filename-embedded date (more reliable than EXIF for exports)
+              capture_date, capture_iso = get_capture_date_from_filename(f.name)
+
+              # Step 2: try EXIF
+              if not capture_date:
+                  capture_date, capture_iso = get_exif_date(f)
+
+              # Step 3: fallback to file mtime
+              if not capture_date:
+                  mtime = os.path.getmtime(f)
+                  dt = datetime.fromtimestamp(mtime)
+                  capture_date = dt.strftime('%Y-%m-%d')
+                  capture_iso  = dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+              upload_date = get_upload_date()
+
+              # Preserve original stem (strip known prefixes for cleaner name)
+              orig_stem = f.stem
+              # Strip leading PHOTO-/IMG-/etc but keep the date digits (they encode capture time)
+              clean_stem = re.sub(r'^(foto|img|dsc|image|photo)[-_]?', '', orig_stem, flags=re.I)
+              clean_stem = clean_stem or orig_stem   # fallback if nothing left
+
+              new_name  = f'{upload_date}_{clean_stem}{f.suffix.lower()}'
               new_path  = OBRA_DIR / new_name
               n = 1
               while new_path.exists() and new_path != f:
-                  new_path = OBRA_DIR / f'{date_str}_{base_stem}_{n:02d}{f.suffix.lower()}'
+                  new_path = OBRA_DIR / f'{upload_date}_{clean_stem}_{n:02d}{f.suffix.lower()}'
                   n += 1
               if new_path != f:
                   f.rename(new_path)
                   print(f'  Renombrado: {f.name} -> {new_path.name}')
-                  renames.append((f.name, new_path.name))
+                  renames.append({
+                      'old': f.name,
+                      'new': new_path.name,
+                      'capturedAt': capture_iso,
+                  })
 
           print(f'Obra: {len(renames)} archivo(s) renombrado(s)')
           EOF
 
-      - name: Regenerar manifests (3 carpetas)
+      - name: Regenerar manifests (3 carpetas) + manifest enriquecido obra
         run: |
           python3 - << 'EOF'
-          import json
+          import json, re
           from pathlib import Path
+          from datetime import datetime
 
           FOLDERS = [
               'assets/photos/diseno',
@@ -100,6 +146,34 @@ jobs:
               files = sorted(f.name for f in p.iterdir() if f.suffix.lower() in EXTS)
               (p / 'manifest.json').write_text(json.dumps(files, indent=2, ensure_ascii=False))
               print(f'OK {folder}  ({len(files)} archivos)')
+
+          # ── Obra: enriched manifest with capturedAt ──
+          MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+          obra_dir = Path('assets/photos/obra')
+
+          # Pattern: YYYY-MM-DD_YYYY-MM-DD-HH-MM-SS...
+          CAP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})')
+
+          enriched = []
+          if obra_dir.is_dir():
+              for fname in sorted(f.name for f in obra_dir.iterdir() if f.suffix.lower() in EXTS):
+                  m = CAP_RE.match(fname)
+                  if m:
+                      y, mo, d, h, mi, s = m.groups()
+                      cap_iso = f'{y}-{mo}-{d}T{h}:{mi}:{s}'
+                      mes = MESES_ES[int(mo)-1]
+                      label = f'{int(d)} {mes} {y}'
+                  else:
+                      cap_iso = None
+                      label = fname.rsplit('.', 1)[0]
+                  enriched.append({
+                      'filename':   fname,
+                      'capturedAt': cap_iso,
+                      'label':      label,
+                  })
+              (obra_dir / 'manifest-enriched.json').write_text(
+                  json.dumps(enriched, indent=2, ensure_ascii=False))
+              print(f'Obra enriched: {len(enriched)} entradas')
           EOF
 
       - name: Commit si hubo cambios
@@ -110,6 +184,7 @@ jobs:
             assets/photos/diseno/manifest.json \
             assets/photos/fotorrealistas/manifest.json \
             assets/photos/obra/manifest.json \
+            assets/photos/obra/manifest-enriched.json \
             'assets/photos/obra/' 2>/dev/null || true
           git diff --staged --quiet || \
             git commit -m "ci: auto-actualizar manifests y renombrar fotos de obra"
