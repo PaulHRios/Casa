@@ -49,19 +49,34 @@
       <p>Cargando modelo 3D…</p>
     </div>
 
+    <!-- Toolbar con pestañas Vistas / Herramientas -->
     <div class="toolbar-3d">
-      <button id="btn-measure" class="tool-btn" title="Medir distancia entre dos puntos">📏 Medir</button>
-      <button id="btn-wire"    class="tool-btn" title="Alternar malla">▦ Malla</button>
-      <button id="btn-reset"   class="tool-btn" title="Restablecer vista">🔄 Reset</button>
-      <button id="btn-labels"  class="tool-btn" title="Mostrar etiquetas de cuartos">🏷 Etiquetas</button>
-      <button id="btn-walk"    class="tool-btn" title="Modo caminar (primera persona)">🚶 Caminar</button>
-      <button id="btn-fullscreen-3d" class="tool-btn" title="Pantalla completa">⛶</button>
-      <label  class="tool-btn" title="Cargar otro modelo .obj / .glb">
-        📂 Cargar
-        <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
-      </label>
-      <div id="measure-display" class="measure-display hidden">
-        Distancia: <span id="measure-value">—</span>
+      <div class="toolbar-tabs">
+        <button class="tb-tab active" data-panel="tb-vistas">📐 Vistas</button>
+        <button class="tb-tab"        data-panel="tb-tools" >🔧 Herramientas</button>
+      </div>
+      <div class="tb-panel active" id="tb-vistas">
+        <button class="preset-btn" data-view="iso">Iso</button>
+        <button class="preset-btn" data-view="top">Planta</button>
+        <button class="preset-btn" data-view="front">Frente</button>
+        <button class="preset-btn" data-view="side">Lado</button>
+        <button class="preset-btn" data-view="left">Izq</button>
+        <button class="preset-btn" data-view="interior">Interior</button>
+      </div>
+      <div class="tb-panel" id="tb-tools">
+        <button id="btn-labels"  class="tool-btn" title="Mostrar etiquetas de cuartos">🏷 Etiquetas</button>
+        <button id="btn-walk"    class="tool-btn" title="Modo caminar (primera persona)">🚶 Caminar</button>
+        <button id="btn-measure" class="tool-btn" title="Medir distancia">📏 Medir</button>
+        <button id="btn-wire"    class="tool-btn" title="Alternar malla">▦ Malla</button>
+        <button id="btn-reset"   class="tool-btn" title="Restablecer vista">🔄 Reset</button>
+        <button id="btn-fullscreen-3d" class="tool-btn" title="Pantalla completa">⛶</button>
+        <label  class="tool-btn" title="Cargar otro modelo .obj / .glb">
+          📂 Cargar
+          <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
+        </label>
+        <div id="measure-display" class="measure-display hidden">
+          Distancia: <span id="measure-value">—</span>
+        </div>
       </div>
     </div>
 
@@ -71,23 +86,17 @@
       <span id="section-value" class="section-value">completo</span>
     </div>
 
-    <div class="view-presets">
-      <button class="preset-btn" data-view="iso">Iso</button>
-      <button class="preset-btn" data-view="top">Planta</button>
-      <button class="preset-btn" data-view="front">Frente</button>
-      <button class="preset-btn" data-view="side">Lado</button>
-      <button class="preset-btn" data-view="left">Izq</button>
-      <button class="preset-btn" data-view="interior">Interior</button>
-    </div>
-
     <!-- Walk mode overlay -->
     <div id="walk-overlay" class="walk-overlay hidden">
-      <div class="walk-info">🚶 Modo Caminar · WASD para moverse · ESC para salir</div>
+      <div class="walk-info walk-info-desktop">🚶 Modo Caminar · WASD · ratón para girar · ESC para salir</div>
+      <div class="walk-info walk-info-mobile">🚶 Modo Caminar · Joystick izq: mover · Joystick der: girar</div>
       <div id="walk-joystick-left" class="walk-joystick walk-joystick-left">
         <div class="walk-joystick-knob"></div>
+        <span class="walk-joystick-label">mover</span>
       </div>
       <div id="walk-joystick-right" class="walk-joystick walk-joystick-right">
         <div class="walk-joystick-knob"></div>
+        <span class="walk-joystick-label">girar</span>
       </div>
       <button id="btn-walk-exit" class="walk-exit-btn">✕ Salir</button>
     </div>
@@ -124,7 +133,7 @@
         <button id="btn-toggle-sidebar" class="tool-btn sidebar-toggle-btn" title="Lista de planos">☰</button>
         <button id="zoom-in"  class="tool-btn">＋</button>
         <button id="zoom-out" class="tool-btn">－</button>
-        <button id="zoom-fit" class="tool-btn" title="Ajustar al ancho">⊡ Ajustar</button>
+        <button id="zoom-fit" class="tool-btn" title="Ajustar al ancho">⊡</button>
         <button id="zoom-reset" class="tool-btn" title="Restablecer zoom">⊙</button>
         <span id="zoom-indicator" class="zoom-indicator">100%</span>
         <span id="plano-name" class="plano-name-label">— ninguno seleccionado —</span>

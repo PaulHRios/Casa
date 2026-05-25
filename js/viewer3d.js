@@ -143,37 +143,48 @@ function animate() {
   const delta = (time - prevTime) / 1000;
   prevTime = time;
 
-  if (walkMode && walkControls.isLocked) {
-    walkVelocity.x -= walkVelocity.x * 10 * delta;
-    walkVelocity.z -= walkVelocity.z * 10 * delta;
-
-    const speed = WALK_SPEED;
-    if (walkKeys.w || walkKeys.ArrowUp)    walkVelocity.z -= speed * delta;
-    if (walkKeys.s || walkKeys.ArrowDown)  walkVelocity.z += speed * delta;
-    if (walkKeys.a || walkKeys.ArrowLeft)  walkVelocity.x -= speed * delta;
-    if (walkKeys.d || walkKeys.ArrowRight) walkVelocity.x += speed * delta;
-
-    walkControls.moveRight(walkVelocity.x * delta * 10);
-    walkControls.moveForward(-walkVelocity.z * delta * 10);
-
+  if (walkMode) {
+    if (walkControls.isLocked) {
+      // ── Desktop: PointerLock + WASD ──
+      walkVelocity.x -= walkVelocity.x * 10 * delta;
+      walkVelocity.z -= walkVelocity.z * 10 * delta;
+      const speed = WALK_SPEED;
+      if (walkKeys.w || walkKeys.ArrowUp)    walkVelocity.z -= speed * delta;
+      if (walkKeys.s || walkKeys.ArrowDown)  walkVelocity.z += speed * delta;
+      if (walkKeys.a || walkKeys.ArrowLeft)  walkVelocity.x -= speed * delta;
+      if (walkKeys.d || walkKeys.ArrowRight) walkVelocity.x += speed * delta;
+      walkControls.moveRight(walkVelocity.x * delta * 10);
+      walkControls.moveForward(-walkVelocity.z * delta * 10);
+      // Joystick also works on desktop
+      if (joystickLeft.active) {
+        walkControls.moveRight(joystickLeft.deltaX * WALK_SPEED * delta);
+        walkControls.moveForward(-joystickLeft.deltaY * WALK_SPEED * delta);
+      }
+      if (joystickRight.active) {
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y -= joystickRight.deltaX * 0.04;
+      }
+    } else {
+      // ── Mobile: free walk — no PointerLock ──
+      if (joystickLeft.active) {
+        const moveDir = new THREE.Vector3();
+        camera.getWorldDirection(moveDir);
+        moveDir.y = 0; moveDir.normalize();
+        const sideDir = new THREE.Vector3(-moveDir.z, 0, moveDir.x);
+        camera.position.addScaledVector(moveDir, -joystickLeft.deltaY * WALK_SPEED * delta);
+        camera.position.addScaledVector(sideDir,  joystickLeft.deltaX * WALK_SPEED * delta);
+      }
+      if (joystickRight.active) {
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y -= joystickRight.deltaX * 0.04;
+        camera.rotation.x -= joystickRight.deltaY * 0.025;
+        camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
+      }
+    }
     // Clamp to human height
-    if (camera.position.y < 0.5) camera.position.y = 0.5;
-    if (camera.position.y > 12)  camera.position.y = 12;
+    camera.position.y = Math.max(0.3, Math.min(12, camera.position.y));
   } else {
     controls.update();
-  }
-
-  // Virtual joystick walk (mobile)
-  if (walkMode && joystickLeft.active) {
-    const dx = joystickLeft.deltaX * WALK_SPEED * delta;
-    const dz = joystickLeft.deltaY * WALK_SPEED * delta;
-    walkControls.moveRight(dx);
-    walkControls.moveForward(-dz);
-  }
-  if (walkMode && joystickRight.active) {
-    const dx = joystickRight.deltaX * 0.03;
-    const dy = joystickRight.deltaY * 0.03;
-    camera.rotation.y -= dx;
   }
 
   renderer.render(scene, camera);
@@ -362,6 +373,17 @@ function setView(kind) {
 document.querySelectorAll('.preset-btn').forEach(b =>
   b.addEventListener('click', () => setView(b.dataset.view)));
 
+/* ── Toolbar tabs (Vistas / Herramientas) ── */
+document.querySelectorAll('.tb-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tb-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tb-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById(tab.dataset.panel);
+    if (panel) panel.classList.add('active');
+  });
+});
+
 document.getElementById('btn-reset').addEventListener('click', () => {
   sectionSlider.value = sectionSlider.max;
   sectionPlane.constant = parseFloat(sectionSlider.max);
@@ -481,14 +503,22 @@ const btnWalk     = document.getElementById('btn-walk');
 const joystickLeft  = { active: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 };
 const joystickRight = { active: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 };
 
+const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
+
 function enterWalkMode() {
   walkMode = true;
   controls.enabled = false;
 
-  // Set eye height
-  camera.position.y = 1.7;
+  // Eye height 1.65 m, POV field of view
+  camera.position.y = 1.65;
+  camera.fov = 70;
+  camera.updateProjectionMatrix();
 
-  walkControls.lock();
+  if (!isTouchDevice()) {
+    // Desktop: request pointer lock (click to start looking around)
+    walkControls.lock();
+  }
+  // Mobile: no PointerLock — joysticks handle movement + rotation
   if (walkOverlay) walkOverlay.classList.remove('hidden');
   if (btnWalk) btnWalk.classList.add('active');
 }
@@ -500,6 +530,10 @@ function exitWalkMode() {
   if (walkOverlay) walkOverlay.classList.add('hidden');
   if (btnWalk) btnWalk.classList.remove('active');
   walkVelocity.set(0, 0, 0);
+  // Restore original FOV and rotation order
+  camera.fov = 42;
+  camera.rotation.order = 'XYZ';
+  camera.updateProjectionMatrix();
   store.set('walk_mode', false);
 }
 
@@ -515,7 +549,8 @@ if (btnWalkExit) {
 }
 
 walkControls.addEventListener('unlock', () => {
-  if (walkMode) exitWalkMode();
+  // Only exit on desktop — mobile never uses PointerLock
+  if (walkMode && !isTouchDevice()) exitWalkMode();
 });
 
 /* ── WASD / Arrow keys ── */

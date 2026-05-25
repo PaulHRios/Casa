@@ -1,13 +1,13 @@
 [
-  { "id": "sala",      "name": "Sala / Comedor",    "x":  1.5, "y": 1.2, "z":  1.0, "icon": "🛋",  "category": "social"   },
-  { "id": "cocina",    "name": "Cocina",             "x":  4.0, "y": 1.2, "z":  0.5, "icon": "🍳",  "category": "servicio" },
-  { "id": "garaje",    "name": "Garaje",             "x": -3.5, "y": 1.2, "z": -1.0, "icon": "🚗",  "category": "servicio" },
-  { "id": "jardín",    "name": "Patio / Jardín",     "x":  2.0, "y": 0.5, "z": -4.0, "icon": "🌿",  "category": "exterior" },
-  { "id": "entrada",   "name": "Acceso principal",   "x":  0.0, "y": 0.5, "z":  4.5, "icon": "🚪",  "category": "social"   },
-  { "id": "rec-ppal",  "name": "Recámara principal", "x":  1.5, "y": 4.5, "z":  1.0, "icon": "🛏",  "category": "privado"  },
-  { "id": "closet",    "name": "Walk-in closet",     "x":  3.5, "y": 4.5, "z":  0.5, "icon": "👔",  "category": "privado"  },
-  { "id": "bano-ppal", "name": "Baño principal",     "x":  3.5, "y": 4.5, "z":  2.0, "icon": "🛁",  "category": "privado"  },
-  { "id": "rec2",      "name": "Recámara 2",         "x": -1.5, "y": 4.5, "z":  1.0, "icon": "🛏",  "category": "privado"  },
-  { "id": "bano2",     "name": "Baño compartido",    "x": -3.0, "y": 4.5, "z":  1.5, "icon": "🚿",  "category": "privado"  },
-  { "id": "cine",      "name": "Cine / Estudio",     "x": -1.5, "y": 4.5, "z": -1.5, "icon": "🎬",  "category": "social"   }
+  { "id": "sala",      "name": "Sala / Comedor",    "x":  1.5, "y": 0.05, "z":  1.0, "icon": "🛋",  "category": "social"   },
+  { "id": "cocina",    "name": "Cocina",             "x":  4.0, "y": 0.05, "z":  0.5, "icon": "🍳",  "category": "servicio" },
+  { "id": "garaje",    "name": "Garaje",             "x": -3.5, "y": 0.05, "z": -1.0, "icon": "🚗",  "category": "servicio" },
+  { "id": "jardín",    "name": "Patio / Jardín",     "x":  2.0, "y": 0.05, "z": -4.0, "icon": "🌿",  "category": "exterior" },
+  { "id": "entrada",   "name": "Acceso principal",   "x":  0.0, "y": 0.05, "z":  4.5, "icon": "🚪",  "category": "social"   },
+  { "id": "rec-ppal",  "name": "Recámara principal", "x":  1.5, "y": 3.05, "z":  1.0, "icon": "🛏",  "category": "privado"  },
+  { "id": "closet",    "name": "Walk-in closet",     "x":  3.5, "y": 3.05, "z":  0.5, "icon": "👔",  "category": "privado"  },
+  { "id": "bano-ppal", "name": "Baño principal",     "x":  3.5, "y": 3.05, "z":  2.0, "icon": "🛁",  "category": "privado"  },
+  { "id": "rec2",      "name": "Recámara 2",         "x": -1.5, "y": 3.05, "z":  1.0, "icon": "🛏",  "category": "privado"  },
+  { "id": "bano2",     "name": "Baño compartido",    "x": -3.0, "y": 3.05, "z":  1.5, "icon": "🚿",  "category": "privado"  },
+  { "id": "cine",      "name": "Cine / Estudio",     "x": -1.5, "y": 3.05, "z": -1.5, "icon": "🎬",  "category": "social"   }
 ]
