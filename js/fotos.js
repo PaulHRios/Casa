@@ -104,15 +104,21 @@
   /* ══════════════════════════════════════════════════════════
      FECHA (para línea de tiempo en Obra)
   ══════════════════════════════════════════════════════════ */
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                 'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
   function parseMonthKey(filename) {
-    const m = filename.match(/^(\d{4})[-_](\d{2})[-_](\d{2})/);
-    return m ? `${m[1]}-${m[2]}` : null;
+    // Formato YYYY-MM-DD_... o YYYY-MM-DD-...
+    let m = filename.match(/^(\d{4})[-_](\d{2})[-_](\d{2})/);
+    if (m) return `${m[1]}-${m[2]}`;
+    // Formato PHOTO-YYYY-MM-DD-HH-MM-SS (exportaciones de WhatsApp / iOS)
+    m = filename.match(/^(?:PHOTO|IMG|DSC|image|foto)[-_](\d{4})[-_](\d{2})[-_](\d{2})/i);
+    if (m) return `${m[1]}-${m[2]}`;
+    return null;
   }
 
   function formatMonth(key) {
     const [y, m] = key.split('-');
-    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     return `${MESES[parseInt(m) - 1]} ${y}`;
   }
 
@@ -120,9 +126,17 @@
      PRETTIFY
   ══════════════════════════════════════════════════════════ */
   function prettify(filename) {
+    // Caso especial: PHOTO-YYYY-MM-DD-HH-MM-SS (fotos de obra iOS/WhatsApp)
+    const photoMatch = filename.match(
+      /^(?:PHOTO|IMG|DSC|foto)[-_](\d{4})[-_](\d{2})[-_](\d{2})[-_](\d{2})[-_](\d{2})/i
+    );
+    if (photoMatch) {
+      const [, y, mo, d, h, min] = photoMatch;
+      return `${d} ${MESES[parseInt(mo)-1].slice(0,3)} ${y}  ${h}:${min}`;
+    }
     const name = filename
       .replace(/\.[^.]+$/, '')
-      .replace(/^\d{4}[-_]\d{2}[-_]\d{2}[-_]?/, '')   // quita prefijo de fecha
+      .replace(/^\d{4}[-_]\d{2}[-_]\d{2}[-_]?/, '')   // quita prefijo de fecha YYYY-MM-DD
       .replace(/^(render|foto|fotorrealista|fotorealista)[-_]?/i, '')
       .replace(/[-_]+/g, ' ')
       .trim();
