@@ -3,7 +3,6 @@
    • Carga plano_light.glb (orientado, en metros)
    • Preserva materiales originales (colores + transparencia)
    • Parcha clippingPlanes para el slider de corte de sección
-   • CSS2DRenderer para etiquetas de cuartos
    • PointerLockControls para modo caminar (primera persona)
    • Pantalla completa, vistas extendidas, persistencia localStorage
 ══════════════════════════════════════════════════════════ */
@@ -14,7 +13,6 @@ import { OBJLoader }        from 'three/addons/loaders/OBJLoader.js';
 import { GLTFLoader }       from 'three/addons/loaders/GLTFLoader.js';
 import { MTLLoader }        from 'three/addons/loaders/MTLLoader.js';
 import { RoomEnvironment }  from 'three/addons/environments/RoomEnvironment.js';
-import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const MODEL_URL    = 'assets/models/plano_light.glb';
@@ -46,14 +44,6 @@ renderer.toneMapping       = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.localClippingEnabled = true;
 container.appendChild(renderer.domElement);
-
-/* ── CSS2DRenderer para etiquetas de cuartos ── */
-const labelRenderer = new CSS2DRenderer();
-labelRenderer.domElement.style.position = 'absolute';
-labelRenderer.domElement.style.top = '0';
-labelRenderer.domElement.style.left = '0';
-labelRenderer.domElement.style.pointerEvents = 'none';
-container.appendChild(labelRenderer.domElement);
 
 /* ── Plano de corte horizontal (section cut) ── */
 const sectionPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
@@ -118,17 +108,13 @@ const walkKeys = { w: false, a: false, s: false, d: false,
 const walkVelocity = new THREE.Vector3();
 const WALK_SPEED = 5.0;
 
-/* ── Grupo de etiquetas de cuartos ── */
-const labelsGroup = new THREE.Group();
-scene.add(labelsGroup);
-labelsGroup.visible = store.get('labels_visible', false);
+/* (room labels removed — coordinates unreliable without measured model) */
 
 /* ── Resize ── */
 function resize() {
   const w = container.clientWidth, h = container.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h);
-  labelRenderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -144,6 +130,12 @@ function animate() {
   prevTime = time;
 
   if (walkMode) {
+    // ── Always enforce eye height and horizontal-only rotation ──
+    camera.position.y = 1.65;
+    camera.rotation.order = 'YXZ';
+    camera.rotation.x = 0;   // no pitch
+    camera.rotation.z = 0;   // no roll
+
     if (walkControls.isLocked) {
       // ── Desktop: PointerLock + WASD ──
       walkVelocity.x -= walkVelocity.x * 10 * delta;
@@ -155,40 +147,26 @@ function animate() {
       if (walkKeys.d || walkKeys.ArrowRight) walkVelocity.x += speed * delta;
       walkControls.moveRight(walkVelocity.x * delta * 10);
       walkControls.moveForward(-walkVelocity.z * delta * 10);
-      // Joystick also works on desktop
-      if (joystickLeft.active) {
-        walkControls.moveRight(joystickLeft.deltaX * WALK_SPEED * delta);
-        walkControls.moveForward(-joystickLeft.deltaY * WALK_SPEED * delta);
-      }
-      if (joystickRight.active) {
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y -= joystickRight.deltaX * 0.04;
-      }
-    } else {
-      // ── Mobile: free walk — no PointerLock ──
-      if (joystickLeft.active) {
-        const moveDir = new THREE.Vector3();
-        camera.getWorldDirection(moveDir);
-        moveDir.y = 0; moveDir.normalize();
-        const sideDir = new THREE.Vector3(-moveDir.z, 0, moveDir.x);
-        camera.position.addScaledVector(moveDir, -joystickLeft.deltaY * WALK_SPEED * delta);
-        camera.position.addScaledVector(sideDir,  joystickLeft.deltaX * WALK_SPEED * delta);
-      }
-      if (joystickRight.active) {
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y -= joystickRight.deltaX * 0.04;
-        camera.rotation.x -= joystickRight.deltaY * 0.025;
-        camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
-      }
     }
-    // Clamp to human height
-    camera.position.y = Math.max(0.3, Math.min(12, camera.position.y));
+
+    // ── Joysticks (mobile + desktop fallback) ──
+    if (joystickLeft.active) {
+      const moveDir = new THREE.Vector3();
+      camera.getWorldDirection(moveDir);
+      moveDir.y = 0; moveDir.normalize();
+      const sideDir = new THREE.Vector3(-moveDir.z, 0, moveDir.x);
+      camera.position.addScaledVector(moveDir, -joystickLeft.deltaY * WALK_SPEED * delta);
+      camera.position.addScaledVector(sideDir,  joystickLeft.deltaX * WALK_SPEED * delta);
+    }
+    if (joystickRight.active) {
+      // Yaw only — no pitch
+      camera.rotation.y -= joystickRight.deltaX * 0.04;
+    }
   } else {
     controls.update();
   }
 
   renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
 }
 animate();
 
@@ -403,94 +381,7 @@ document.getElementById('btn-wire').addEventListener('click', () => {
   });
 });
 
-/* ══════════════════════════════════════
-   ETIQUETAS DE CUARTOS (CSS2DRenderer)
-══════════════════════════════════════ */
-let roomsData = [];
-
-async function loadRoomLabels() {
-  try {
-    const resp = await fetch('assets/rooms.json');
-    if (!resp.ok) return;
-    roomsData = await resp.json();
-
-    // Clear existing labels
-    while (labelsGroup.children.length) labelsGroup.remove(labelsGroup.children[0]);
-
-    roomsData.forEach(room => {
-      const div = document.createElement('div');
-      div.className = 'room-label';
-      div.innerHTML = `<span class="room-icon">${room.icon}</span><span class="room-name">${room.name}</span>`;
-
-      const obj = new CSS2DObject(div);
-      obj.position.set(room.x, room.y, room.z);
-      obj.userData.roomId = room.id;
-      labelsGroup.add(obj);
-    });
-
-    // Restore visible state
-    labelsGroup.visible = store.get('labels_visible', false);
-    const btnLabels = document.getElementById('btn-labels');
-    if (btnLabels) btnLabels.classList.toggle('active', labelsGroup.visible);
-
-    // Populate rooms panel
-    buildRoomsPanel();
-  } catch (err) {
-    console.warn('[3D] No se pudo cargar rooms.json:', err);
-  }
-}
-
-function buildRoomsPanel() {
-  const list = document.getElementById('rooms-list');
-  if (!list) return;
-  list.innerHTML = '';
-  roomsData.forEach(room => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span>${room.icon}</span><span>${room.name}</span>`;
-    li.addEventListener('click', () => focusRoom(room));
-    list.appendChild(li);
-  });
-}
-
-function focusRoom(room) {
-  const target = new THREE.Vector3(room.x, room.y, room.z);
-  controls.target.copy(target);
-  const offset = new THREE.Vector3(room.x + 4, room.y + 3, room.z + 4);
-  camera.position.copy(offset);
-  controls.update();
-}
-
-/* ── Botón etiquetas ── */
-const btnLabels = document.getElementById('btn-labels');
-if (btnLabels) {
-  btnLabels.addEventListener('click', () => {
-    labelsGroup.visible = !labelsGroup.visible;
-    btnLabels.classList.toggle('active', labelsGroup.visible);
-    store.set('labels_visible', labelsGroup.visible);
-
-    const panel = document.getElementById('rooms-panel');
-    if (panel) panel.classList.toggle('hidden', !labelsGroup.visible);
-  });
-}
-
-/* ── Panel de cuartos ── */
-const roomsPanel = document.getElementById('rooms-panel');
-const roomsPanelClose = document.getElementById('rooms-panel-close');
-const btnViewAllRooms = document.getElementById('btn-view-all-rooms');
-
-if (roomsPanelClose) {
-  roomsPanelClose.addEventListener('click', () => {
-    roomsPanel.classList.add('hidden');
-  });
-}
-if (btnViewAllRooms) {
-  btnViewAllRooms.addEventListener('click', () => {
-    setView('iso');
-    labelsGroup.visible = true;
-    store.set('labels_visible', true);
-    if (btnLabels) btnLabels.classList.add('active');
-  });
-}
+/* (room labels removed — coordinates unreliable without measured model) */
 
 /* ══════════════════════════════════════
    MODO CAMINAR (primera persona)
@@ -702,4 +593,3 @@ controls.addEventListener('change', () => {
 
 /* ── Iniciar ── */
 loadGLB(MODEL_URL);
-loadRoomLabels();
