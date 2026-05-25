@@ -56,8 +56,13 @@
 
     if (entry.type === 'pdf') {
       pdfCanvas.style.display = 'block';
-      const buffer = entry.data;
-      pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+      /* FIX: pdf.js puede transferir/vaciar el ArrayBuffer original.
+         Siempre pasamos una COPIA para que el entry.data quede intacto
+         y se pueda reabrir el mismo plano múltiples veces. */
+      const safeData = entry.data instanceof Uint8Array
+        ? entry.data.slice()                            // ya es Uint8Array → copiar
+        : new Uint8Array(entry.data.slice(0));          // ArrayBuffer → copiar y envolver
+      pdfDoc = await pdfjsLib.getDocument({ data: safeData }).promise;
       currentPage = 1;
       renderPage(1);
     } else {
@@ -176,7 +181,7 @@
         } else {
           const buf  = await r.arrayBuffer();
           const idx  = planos.length;
-          planos.push({ name: f, label: prettify(f), type: 'pdf', data: buf });
+          planos.push({ name: f, label: prettify(f), type: 'pdf', data: new Uint8Array(buf) });
           addToList(planos[idx], idx);
           if (idx === 0) loadEntry(0);
         }
