@@ -28,6 +28,9 @@
     <button class="tab-btn" data-target="section-diseno">
       <span class="icon">🎨</span><span class="lbl"> Diseño</span>
     </button>
+    <button class="tab-btn" data-target="section-fotorrealistas">
+      <span class="icon">📷</span><span class="lbl"> Fotorrealistas</span>
+    </button>
     <button class="tab-btn" data-target="section-obra">
       <span class="icon">🏗</span><span class="lbl"> Avance de Obra</span>
     </button>
@@ -109,50 +112,92 @@
 <!-- ───── DISEÑO (renders con muebles) ───── -->
 <section id="section-diseno" class="section gallery-section">
   <div class="gallery-header">
-    <h2 class="gallery-title">🎨 Renders de Diseño</h2>
-    <div class="gallery-actions">
-      <span id="diseno-count" class="gallery-count"></span>
-      <label class="upload-btn">
-        + Agregar render
-        <input type="file" id="diseno-upload" accept="image/*" multiple hidden />
-      </label>
+    <div class="gallery-title-group">
+      <span class="gallery-emoji">🎨</span>
+      <div class="gallery-title-info">
+        <h2 class="gallery-title">Renders de Diseño</h2>
+        <span id="diseno-count" class="gallery-count"></span>
+      </div>
+    </div>
+    <label class="upload-btn" title="Agregar renders">
+      + Agregar
+      <input type="file" id="diseno-upload" accept="image/*" multiple hidden />
+    </label>
+  </div>
+  <div class="gallery-filters" id="diseno-filters"></div>
+  <div id="diseno-body" class="gallery-body"></div>
+</section>
+
+<!-- ───── FOTORREALISTAS ───── -->
+<section id="section-fotorrealistas" class="section gallery-section">
+  <div class="gallery-header">
+    <div class="gallery-title-group">
+      <span class="gallery-emoji">📷</span>
+      <div class="gallery-title-info">
+        <h2 class="gallery-title">Renders Fotorrealistas</h2>
+        <span id="fotorrealistas-count" class="gallery-count"></span>
+      </div>
+    </div>
+    <label class="upload-btn" title="Agregar renders">
+      + Agregar
+      <input type="file" id="fotorrealistas-upload" accept="image/*" multiple hidden />
+    </label>
+  </div>
+  <div id="fotorrealistas-body" class="gallery-body">
+    <div class="gallery-empty-state">
+      <div class="ges-icon">📷</div>
+      <h3>Renders fotorrealistas</h3>
+      <p>Sube tus imágenes directamente a GitHub en la carpeta:</p>
+      <code>assets/photos/fotorrealistas/</code>
+      <p>Formatos soportados: <strong>JPG · PNG · WEBP</strong></p>
+      <p class="ges-note">El manifest se actualiza automáticamente al hacer push.</p>
     </div>
   </div>
-  <div id="diseno-grid" class="fotos-grid"></div>
 </section>
 
 <!-- ───── AVANCE DE OBRA ───── -->
 <section id="section-obra" class="section gallery-section">
   <div class="gallery-header">
-    <h2 class="gallery-title">🏗 Avance de Obra</h2>
-    <div class="gallery-actions">
-      <span id="obra-count" class="gallery-count"></span>
-      <label class="upload-btn">
-        + Agregar foto
-        <input type="file" id="obra-upload" accept="image/*" multiple hidden />
-      </label>
+    <div class="gallery-title-group">
+      <span class="gallery-emoji">🏗</span>
+      <div class="gallery-title-info">
+        <h2 class="gallery-title">Avance de Obra</h2>
+        <span id="obra-count" class="gallery-count"></span>
+      </div>
     </div>
+    <label class="upload-btn" title="Agregar fotos">
+      + Agregar
+      <input type="file" id="obra-upload" accept="image/*" multiple hidden />
+    </label>
   </div>
-  <div id="obra-grid" class="fotos-grid">
-    <!-- placeholder inline dentro del grid para que no se corte -->
-    <div id="obra-instrucciones" class="obra-instrucciones-grid">
-      <div class="obra-inst-icon">📁</div>
-      <h3>Agrega fotos de la construcción</h3>
+  <div id="obra-body" class="gallery-body">
+    <div id="obra-instrucciones" class="gallery-empty-state">
+      <div class="ges-icon">📁</div>
+      <h3>Fotos de construcción</h3>
       <p>Sube tus fotos directamente a GitHub en la carpeta:</p>
       <code>assets/photos/obra/</code>
-      <p>Formatos soportados: <strong>JPG · PNG · WEBP</strong></p>
-      <p class="obra-inst-note">El manifest se actualiza automáticamente — las fotos aparecen aquí en el siguiente deploy.</p>
+      <p>Las fotos se organizan <strong>automáticamente por fecha</strong> de captura.</p>
+      <p>Formatos: <strong>JPG · PNG · WEBP</strong></p>
+      <p class="ges-note">El manifest se actualiza en cada deploy — las fotos aparecen automáticamente.</p>
     </div>
   </div>
 </section>
 
-<!-- ───── LIGHTBOX COMPARTIDO ───── -->
+<!-- ───── LIGHTBOX ───── -->
 <div id="lightbox" class="lightbox hidden">
-  <button id="lb-close" class="lb-close">✕</button>
-  <button id="lb-prev"  class="lb-nav lb-prev">❮</button>
-  <button id="lb-next"  class="lb-nav lb-next">❯</button>
-  <img id="lb-img" src="" alt="" />
-  <div id="lb-caption"></div>
+  <div class="lb-topbar">
+    <button id="lb-close" class="lb-close">✕</button>
+    <span id="lb-counter" class="lb-counter"></span>
+  </div>
+  <div class="lb-main">
+    <button id="lb-prev" class="lb-nav lb-prev">❮</button>
+    <img id="lb-img" src="" alt="" />
+    <button id="lb-next" class="lb-nav lb-next">❯</button>
+  </div>
+  <div class="lb-bottom">
+    <div id="lb-caption" class="lb-caption"></div>
+    <div id="lb-filmstrip" class="lb-filmstrip"></div>
+  </div>
 </div>
 
 <script src="js/app.js"></script>

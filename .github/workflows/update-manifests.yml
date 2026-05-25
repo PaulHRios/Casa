@@ -5,8 +5,9 @@ on:
   push:
     paths:
       - 'assets/photos/diseno/**'
+      - 'assets/photos/fotorrealistas/**'
       - 'assets/photos/obra/**'
-  workflow_dispatch:   # también se puede lanzar manualmente desde Actions
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,36 +18,99 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Regenerar manifests
+      - name: Instalar Pillow (para EXIF)
+        run: pip install Pillow --quiet
+
+      - name: Procesar fotos de obra (renombrar por fecha EXIF)
         run: |
           python3 - << 'EOF'
-          import json, os
+          import os, json, re
+          from pathlib import Path
+          from datetime import datetime
 
-          folders = [
-            'assets/photos/diseno',
-            'assets/photos/obra',
+          try:
+              from PIL import Image
+              from PIL.ExifTags import TAGS
+          except ImportError:
+              Image = None
+
+          OBRA_DIR = Path('assets/photos/obra')
+          EXTS     = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+
+          def get_exif_date(path):
+              if Image:
+                  try:
+                      img  = Image.open(path)
+                      exif = img._getexif() or {}
+                      for tag_id, val in exif.items():
+                          if TAGS.get(tag_id) in ('DateTimeOriginal', 'DateTime'):
+                              dt = datetime.strptime(str(val), '%Y:%m:%d %H:%M:%S')
+                              return dt.strftime('%Y-%m-%d')
+                  except Exception:
+                      pass
+              mtime = os.path.getmtime(path)
+              return datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+
+          if not OBRA_DIR.is_dir():
+              print('Carpeta obra/ no existe, se omite.')
+              exit(0)
+
+          DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}_')
+          renames = []
+
+          for f in sorted(OBRA_DIR.iterdir()):
+              if f.suffix.lower() not in EXTS:
+                  continue
+              if DATE_RE.match(f.name):
+                  continue
+              date_str  = get_exif_date(f)
+              base_stem = re.sub(r'^(foto|img|dsc|image|photo)[-_]?', '', f.stem, flags=re.I)
+              base_stem = re.sub(r'[-_]+', '-', base_stem).strip('-') or 'foto'
+              new_name  = f'{date_str}_{base_stem}{f.suffix.lower()}'
+              new_path  = OBRA_DIR / new_name
+              n = 1
+              while new_path.exists() and new_path != f:
+                  new_path = OBRA_DIR / f'{date_str}_{base_stem}_{n:02d}{f.suffix.lower()}'
+                  n += 1
+              if new_path != f:
+                  f.rename(new_path)
+                  print(f'  Renombrado: {f.name} -> {new_path.name}')
+                  renames.append((f.name, new_path.name))
+
+          print(f'Obra: {len(renames)} archivo(s) renombrado(s)')
+          EOF
+
+      - name: Regenerar manifests (3 carpetas)
+        run: |
+          python3 - << 'EOF'
+          import json
+          from pathlib import Path
+
+          FOLDERS = [
+              'assets/photos/diseno',
+              'assets/photos/fotorrealistas',
+              'assets/photos/obra',
           ]
-          exts = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+          EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 
-          for folder in folders:
-            if not os.path.isdir(folder):
-              continue
-            files = sorted(
-              f for f in os.listdir(folder)
-              if os.path.splitext(f)[1].lower() in exts
-            )
-            manifest_path = os.path.join(folder, 'manifest.json')
-            with open(manifest_path, 'w') as fh:
-              json.dump(files, fh, indent=2)
-            print(f"✓ {manifest_path}  ({len(files)} archivos)")
+          for folder in FOLDERS:
+              p = Path(folder)
+              if not p.is_dir():
+                  continue
+              files = sorted(f.name for f in p.iterdir() if f.suffix.lower() in EXTS)
+              (p / 'manifest.json').write_text(json.dumps(files, indent=2, ensure_ascii=False))
+              print(f'OK {folder}  ({len(files)} archivos)')
           EOF
 
       - name: Commit si hubo cambios
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/photos/diseno/manifest.json \
-                  assets/photos/obra/manifest.json   2>/dev/null || true
+          git add \
+            assets/photos/diseno/manifest.json \
+            assets/photos/fotorrealistas/manifest.json \
+            assets/photos/obra/manifest.json \
+            'assets/photos/obra/' 2>/dev/null || true
           git diff --staged --quiet || \
-            git commit -m "ci: auto-actualizar manifests de fotos"
+            git commit -m "ci: auto-actualizar manifests y renombrar fotos de obra"
           git push
