@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proyecto Casa — Visualizador</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls via importmap workaround (inline) -->
+</head>
+<body>
+
+<!-- ───── NAV ───── -->
+<nav class="navbar">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M14 2L2 10v16h8v-8h8v8h8V10L14 2z" fill="#4f8ef7"/>
+    </svg>
+    <span>Proyecto Casa</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" data-target="section-3d">
+      <span class="icon">⬡</span> Modelo 3D
+    </button>
+    <button class="tab-btn" data-target="section-planos">
+      <span class="icon">📐</span> Planos
+    </button>
+    <button class="tab-btn" data-target="section-fotos">
+      <span class="icon">🖼</span> Fotos
+    </button>
+  </div>
+</nav>
+
+<!-- ───── 3D SECTION ───── -->
+<section id="section-3d" class="section active">
+  <div class="viewer-wrap">
+    <div id="canvas-3d"></div>
+
+    <!-- toolbar -->
+    <div class="toolbar-3d">
+      <button id="btn-measure" class="tool-btn" title="Medir distancia">
+        📏 Medir
+      </button>
+      <button id="btn-reset" class="tool-btn" title="Restablecer vista">
+        🔄 Reset
+      </button>
+      <label class="tool-btn" title="Cargar modelo .obj">
+        📂 Cargar OBJ
+        <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
+      </label>
+      <div id="measure-display" class="measure-display hidden">
+        Distancia: <span id="measure-value">—</span>
+      </div>
+    </div>
+
+    <!-- instructions overlay -->
+    <div class="hint-box">
+      🖱 Arrastrar: rotar &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; Clic derecho: desplazar
+    </div>
+
+    <!-- drop zone shown when no model loaded -->
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-inner">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <path d="M32 8L8 24v32h16V40h16v16h16V24L32 8z" fill="#4f8ef7" opacity=".8"/>
+        </svg>
+        <p>Arrastra un archivo <strong>.obj</strong> o <strong>.glb</strong> aquí</p>
+        <p style="opacity:.6;font-size:.85rem">o usa el botón "Cargar OBJ" arriba</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── PLANOS SECTION ───── -->
+<section id="section-planos" class="section">
+  <div class="planos-layout">
+    <!-- sidebar list -->
+    <aside class="planos-sidebar">
+      <h3>Planos</h3>
+      <ul id="planos-list" class="planos-list">
+        <!-- items injected by JS -->
+      </ul>
+      <label class="upload-btn">
+        + Agregar plano
+        <input type="file" id="plano-upload" accept=".pdf,.dxf,.png,.jpg,.jpeg" multiple hidden />
+      </label>
+    </aside>
+
+    <!-- pdf/image viewer -->
+    <div class="planos-viewer-wrap">
+      <div class="plano-toolbar">
+        <button id="zoom-in"  class="tool-btn">＋ Zoom</button>
+        <button id="zoom-out" class="tool-btn">－ Zoom</button>
+        <button id="zoom-fit" class="tool-btn">⊡ Ajustar</button>
+        <span id="plano-name" class="plano-name-label">— ninguno seleccionado —</span>
+        <button id="prev-page" class="tool-btn">◀ Ant</button>
+        <span id="page-info">p. 1 / 1</span>
+        <button id="next-page" class="tool-btn">Sig ▶</button>
+      </div>
+      <div class="plano-canvas-wrap" id="plano-scroll">
+        <canvas id="pdf-canvas"></canvas>
+        <img id="img-viewer" style="display:none;max-width:100%;" />
+        <div id="no-plano-msg" class="no-plano-msg">
+          Selecciona un plano de la lista o agrega uno con el botón
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── FOTOS SECTION ───── -->
+<section id="section-fotos" class="section">
+  <div class="fotos-toolbar">
+    <label class="upload-btn">
+      + Agregar fotos
+      <input type="file" id="fotos-upload" accept="image/*" multiple hidden />
+    </label>
+    <span id="fotos-count" style="opacity:.6"></span>
+  </div>
+  <div id="fotos-grid" class="fotos-grid">
+    <div class="fotos-empty">
+      Agrega fotos del proyecto con el botón de arriba
+    </div>
+  </div>
+
+  <!-- lightbox -->
+  <div id="lightbox" class="lightbox hidden">
+    <button id="lb-close" class="lb-close">✕</button>
+    <button id="lb-prev"  class="lb-nav lb-prev">❮</button>
+    <button id="lb-next"  class="lb-nav lb-next">❯</button>
+    <img id="lb-img" src="" alt="" />
+    <div id="lb-caption"></div>
+  </div>
+</section>
+
+<script src="js/app.js"></script>
+<script src="js/viewer3d.js"></script>
+<script src="js/planos.js"></script>
+<script src="js/fotos.js"></script>
+</body>
+</html>
