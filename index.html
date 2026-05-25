@@ -4,12 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Proyecto Casa — Visualizador</title>
+  <meta name="description" content="Visualizador interactivo del proyecto: modelo 3D, planos acotados y fotos." />
   <link rel="stylesheet" href="css/style.css" />
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- OrbitControls via importmap workaround (inline) -->
+  <!-- PDF.js (local) para planos -->
+  <script src="vendor/pdf.min.js"></script>
 </head>
 <body>
 
@@ -23,13 +21,13 @@
   </div>
   <div class="nav-tabs">
     <button class="tab-btn active" data-target="section-3d">
-      <span class="icon">⬡</span> Modelo 3D
+      <span class="icon">⬡</span><span class="lbl"> Modelo 3D</span>
     </button>
     <button class="tab-btn" data-target="section-planos">
-      <span class="icon">📐</span> Planos
+      <span class="icon">📐</span><span class="lbl"> Planos</span>
     </button>
     <button class="tab-btn" data-target="section-fotos">
-      <span class="icon">🖼</span> Fotos
+      <span class="icon">🖼</span><span class="lbl"> Fotos</span>
     </button>
   </div>
 </nav>
@@ -39,16 +37,25 @@
   <div class="viewer-wrap">
     <div id="canvas-3d"></div>
 
+    <!-- loader -->
+    <div id="model-loader" class="model-loader">
+      <div class="spinner"></div>
+      <p>Cargando modelo 3D…</p>
+    </div>
+
     <!-- toolbar -->
     <div class="toolbar-3d">
-      <button id="btn-measure" class="tool-btn" title="Medir distancia">
+      <button id="btn-measure" class="tool-btn" title="Medir distancia entre dos puntos">
         📏 Medir
+      </button>
+      <button id="btn-wire" class="tool-btn" title="Alternar malla">
+        ▦ Malla
       </button>
       <button id="btn-reset" class="tool-btn" title="Restablecer vista">
         🔄 Reset
       </button>
-      <label class="tool-btn" title="Cargar modelo .obj">
-        📂 Cargar OBJ
+      <label class="tool-btn" title="Cargar otro modelo .obj / .glb">
+        📂 Cargar
         <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
       </label>
       <div id="measure-display" class="measure-display hidden">
@@ -56,20 +63,17 @@
       </div>
     </div>
 
+    <!-- view presets -->
+    <div class="view-presets">
+      <button class="preset-btn" data-view="iso">Iso</button>
+      <button class="preset-btn" data-view="top">Planta</button>
+      <button class="preset-btn" data-view="front">Frente</button>
+      <button class="preset-btn" data-view="side">Lado</button>
+    </div>
+
     <!-- instructions overlay -->
     <div class="hint-box">
       🖱 Arrastrar: rotar &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; Clic derecho: desplazar
-    </div>
-
-    <!-- drop zone shown when no model loaded -->
-    <div id="drop-zone" class="drop-zone">
-      <div class="drop-inner">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <path d="M32 8L8 24v32h16V40h16v16h16V24L32 8z" fill="#4f8ef7" opacity=".8"/>
-        </svg>
-        <p>Arrastra un archivo <strong>.obj</strong> o <strong>.glb</strong> aquí</p>
-        <p style="opacity:.6;font-size:.85rem">o usa el botón "Cargar OBJ" arriba</p>
-      </div>
     </div>
   </div>
 </section>
@@ -80,9 +84,7 @@
     <!-- sidebar list -->
     <aside class="planos-sidebar">
       <h3>Planos</h3>
-      <ul id="planos-list" class="planos-list">
-        <!-- items injected by JS -->
-      </ul>
+      <ul id="planos-list" class="planos-list"></ul>
       <label class="upload-btn">
         + Agregar plano
         <input type="file" id="plano-upload" accept=".pdf,.dxf,.png,.jpg,.jpeg" multiple hidden />
@@ -96,15 +98,15 @@
         <button id="zoom-out" class="tool-btn">－ Zoom</button>
         <button id="zoom-fit" class="tool-btn">⊡ Ajustar</button>
         <span id="plano-name" class="plano-name-label">— ninguno seleccionado —</span>
-        <button id="prev-page" class="tool-btn">◀ Ant</button>
+        <button id="prev-page" class="tool-btn">◀</button>
         <span id="page-info">p. 1 / 1</span>
-        <button id="next-page" class="tool-btn">Sig ▶</button>
+        <button id="next-page" class="tool-btn">▶</button>
       </div>
       <div class="plano-canvas-wrap" id="plano-scroll">
         <canvas id="pdf-canvas"></canvas>
         <img id="img-viewer" style="display:none;max-width:100%;" />
         <div id="no-plano-msg" class="no-plano-msg">
-          Selecciona un plano de la lista o agrega uno con el botón
+          Selecciona un plano de la lista
         </div>
       </div>
     </div>
@@ -121,9 +123,7 @@
     <span id="fotos-count" style="opacity:.6"></span>
   </div>
   <div id="fotos-grid" class="fotos-grid">
-    <div class="fotos-empty">
-      Agrega fotos del proyecto con el botón de arriba
-    </div>
+    <div class="fotos-empty">Agrega fotos del proyecto con el botón de arriba</div>
   </div>
 
   <!-- lightbox -->
@@ -137,7 +137,7 @@
 </section>
 
 <script src="js/app.js"></script>
-<script src="js/viewer3d.js"></script>
+<script type="module" src="vendor/viewer3d.bundle.js"></script>
 <script src="js/planos.js"></script>
 <script src="js/fotos.js"></script>
 </body>

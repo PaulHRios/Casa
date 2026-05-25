@@ -12,6 +12,13 @@
   let photos   = [];   // { src, name }
   let lbIndex  = 0;
 
+  function prettify(filename) {
+    return filename
+      .replace(/\.[^.]+$/, '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   function openLightbox(idx) {
     lbIndex = idx;
     lbImg.src = photos[idx].src;
@@ -79,8 +86,9 @@
       for (const f of files) {
         const url = 'assets/photos/' + f;
         const idx = photos.length;
-        photos.push({ src: url, name: f });
-        addCard(url, f, idx);
+        const label = prettify(f);
+        photos.push({ src: url, name: label });
+        addCard(url, label, idx);
       }
     } catch (_) {}
   }

@@ -3,8 +3,7 @@
 ══════════════════════════════════════ */
 
 (function () {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
 
   const list        = document.getElementById('planos-list');
   const pdfCanvas   = document.getElementById('pdf-canvas');
@@ -19,6 +18,13 @@
   let currentPage = 1;
   let planos      = [];   // { name, type:'pdf'|'img', data:url|arrayBuffer }
   let activeIdx   = -1;
+
+  function prettify(filename) {
+    return filename
+      .replace(/\.[^.]+$/, '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
 
   /* ── Render PDF page ── */
   async function renderPage(num) {
@@ -38,7 +44,7 @@
     if (idx === activeIdx) return;
     activeIdx = idx;
     const entry = planos[idx];
-    planoName.textContent = entry.name;
+    planoName.textContent = entry.label || entry.name;
 
     // reset UI
     pdfCanvas.style.display = 'none';
@@ -63,7 +69,7 @@
   /* ── Add item to list ── */
   function addToList(entry, idx) {
     const li = document.createElement('li');
-    li.textContent = entry.name;
+    li.textContent = entry.label || entry.name;
     li.addEventListener('click', () => loadEntry(idx));
     list.appendChild(li);
   }
@@ -80,7 +86,7 @@
         const reader = new FileReader();
         reader.onload = ev => {
           const idx = planos.length;
-          planos.push({ name, type: 'pdf', data: ev.target.result });
+          planos.push({ name, label: prettify(name), type: 'pdf', data: ev.target.result });
           addToList(planos[idx], idx);
           if (idx === 0) loadEntry(0);
         };
@@ -89,7 +95,7 @@
         const reader = new FileReader();
         reader.onload = ev => {
           const idx = planos.length;
-          planos.push({ name, type: 'img', data: ev.target.result });
+          planos.push({ name, label: prettify(name), type: 'img', data: ev.target.result });
           addToList(planos[idx], idx);
           if (planos.length === 1) loadEntry(0);
         };
@@ -164,13 +170,13 @@
           const blob = await r.blob();
           const url  = URL.createObjectURL(blob);
           const idx  = planos.length;
-          planos.push({ name: f, type: 'img', data: url });
+          planos.push({ name: f, label: prettify(f), type: 'img', data: url });
           addToList(planos[idx], idx);
           if (idx === 0) loadEntry(0);
         } else {
           const buf  = await r.arrayBuffer();
           const idx  = planos.length;
-          planos.push({ name: f, type: 'pdf', data: buf });
+          planos.push({ name: f, label: prettify(f), type: 'pdf', data: buf });
           addToList(planos[idx], idx);
           if (idx === 0) loadEntry(0);
         }
