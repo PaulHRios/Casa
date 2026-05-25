@@ -108,6 +108,9 @@ const walkKeys = { w: false, a: false, s: false, d: false,
 const walkVelocity = new THREE.Vector3();
 const WALK_SPEED = 5.0;
 
+/* Default walk spawn: beside the house on the left, facing toward it (+X direction) */
+const WALK_DEFAULT = { x: -10, y: 1.65, z: 0, yaw: Math.PI / 2 };
+
 /* (room labels removed — coordinates unreliable without measured model) */
 
 /* ── Resize ── */
@@ -339,7 +342,7 @@ function setView(kind) {
     case 'side':     camera.position.set(c.x + r, c.y + r * 0.18, c.z);       break;
     case 'left':     camera.position.set(c.x - r, c.y + r * 0.18, c.z);       break;
     case 'interior':
-      exitWalkMode();
+      exitWalkMode({ restoreIso: false });
       camera.position.set(0, 1.7, 0);
       controls.target.set(0, 1.7, -3);
       break;
@@ -400,13 +403,18 @@ function enterWalkMode() {
   walkMode = true;
   controls.enabled = false;
 
-  // Eye height 1.65 m, POV field of view
-  camera.position.y = 1.65;
+  // Restore last walk position/orientation, or use default spawn on first visit
+  const saved = store.get('walk_state', null);
+  const wp = saved || WALK_DEFAULT;
+  camera.position.set(wp.x, 1.65, wp.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.set(0, wp.yaw, 0);
+
   camera.fov = 70;
   camera.updateProjectionMatrix();
 
   if (!isTouchDevice()) {
-    // Desktop: request pointer lock (click to start looking around)
+    // Desktop: request pointer lock
     walkControls.lock();
   }
   // Mobile: no PointerLock — joysticks handle movement + rotation
@@ -414,18 +422,28 @@ function enterWalkMode() {
   if (btnWalk) btnWalk.classList.add('active');
 }
 
-function exitWalkMode() {
+function exitWalkMode({ restoreIso = true } = {}) {
+  // Save current walk position/orientation for next entry
+  store.set('walk_state', {
+    x: camera.position.x,
+    y: 1.65,
+    z: camera.position.z,
+    yaw: camera.rotation.y,
+  });
+
   walkMode = false;
   controls.enabled = true;
   if (walkControls.isLocked) walkControls.unlock();
   if (walkOverlay) walkOverlay.classList.add('hidden');
   if (btnWalk) btnWalk.classList.remove('active');
   walkVelocity.set(0, 0, 0);
-  // Restore original FOV and rotation order
   camera.fov = 42;
   camera.rotation.order = 'XYZ';
   camera.updateProjectionMatrix();
   store.set('walk_mode', false);
+
+  // Return to isometric view (unless caller overrides it)
+  if (restoreIso) setView('iso');
 }
 
 if (btnWalk) {
