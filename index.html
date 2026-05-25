@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Proyecto Casa — Visualizador</title>
-  <meta name="description" content="Visualizador interactivo del proyecto: modelo 3D, planos acotados y fotos." />
+  <meta name="description" content="Visualizador interactivo del proyecto: modelo 3D, planos acotados, renders y avance de obra." />
   <link rel="stylesheet" href="css/style.css" />
-  <!-- PDF.js (local) para planos -->
   <script src="vendor/pdf.min.js"></script>
 </head>
 <body>
@@ -26,35 +25,30 @@
     <button class="tab-btn" data-target="section-planos">
       <span class="icon">📐</span><span class="lbl"> Planos</span>
     </button>
-    <button class="tab-btn" data-target="section-fotos">
-      <span class="icon">🖼</span><span class="lbl"> Fotos</span>
+    <button class="tab-btn" data-target="section-diseno">
+      <span class="icon">🎨</span><span class="lbl"> Diseño</span>
+    </button>
+    <button class="tab-btn" data-target="section-obra">
+      <span class="icon">🏗</span><span class="lbl"> Avance de Obra</span>
     </button>
   </div>
 </nav>
 
-<!-- ───── 3D SECTION ───── -->
+<!-- ───── MODELO 3D ───── -->
 <section id="section-3d" class="section active">
   <div class="viewer-wrap">
     <div id="canvas-3d"></div>
 
-    <!-- loader -->
     <div id="model-loader" class="model-loader">
       <div class="spinner"></div>
       <p>Cargando modelo 3D…</p>
     </div>
 
-    <!-- toolbar -->
     <div class="toolbar-3d">
-      <button id="btn-measure" class="tool-btn" title="Medir distancia entre dos puntos">
-        📏 Medir
-      </button>
-      <button id="btn-wire" class="tool-btn" title="Alternar malla">
-        ▦ Malla
-      </button>
-      <button id="btn-reset" class="tool-btn" title="Restablecer vista">
-        🔄 Reset
-      </button>
-      <label class="tool-btn" title="Cargar otro modelo .obj / .glb">
+      <button id="btn-measure" class="tool-btn" title="Medir distancia entre dos puntos">📏 Medir</button>
+      <button id="btn-wire"    class="tool-btn" title="Alternar malla">▦ Malla</button>
+      <button id="btn-reset"   class="tool-btn" title="Restablecer vista">🔄 Reset</button>
+      <label  class="tool-btn" title="Cargar otro modelo .obj / .glb">
         📂 Cargar
         <input type="file" id="obj-upload" accept=".obj,.glb,.gltf" hidden />
       </label>
@@ -63,14 +57,12 @@
       </div>
     </div>
 
-    <!-- section cut slider -->
     <div class="section-bar" id="section-bar" style="display:none">
       <span class="section-label">✂ Corte</span>
       <input type="range" id="section-slider" min="0" max="4" step="0.05" value="4" />
       <span id="section-value" class="section-value">completo</span>
     </div>
 
-    <!-- view presets -->
     <div class="view-presets">
       <button class="preset-btn" data-view="iso">Iso</button>
       <button class="preset-btn" data-view="top">Planta</button>
@@ -78,17 +70,15 @@
       <button class="preset-btn" data-view="side">Lado</button>
     </div>
 
-    <!-- instructions overlay -->
     <div class="hint-box">
       🖱 Arrastrar: rotar &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; Clic derecho: desplazar
     </div>
   </div>
 </section>
 
-<!-- ───── PLANOS SECTION ───── -->
+<!-- ───── PLANOS ───── -->
 <section id="section-planos" class="section">
   <div class="planos-layout">
-    <!-- sidebar list -->
     <aside class="planos-sidebar">
       <h3>Planos</h3>
       <ul id="planos-list" class="planos-list"></ul>
@@ -97,8 +87,6 @@
         <input type="file" id="plano-upload" accept=".pdf,.dxf,.png,.jpg,.jpeg" multiple hidden />
       </label>
     </aside>
-
-    <!-- pdf/image viewer -->
     <div class="planos-viewer-wrap">
       <div class="plano-toolbar">
         <button id="zoom-in"  class="tool-btn">＋ Zoom</button>
@@ -112,36 +100,60 @@
       <div class="plano-canvas-wrap" id="plano-scroll">
         <canvas id="pdf-canvas"></canvas>
         <img id="img-viewer" style="display:none;max-width:100%;" />
-        <div id="no-plano-msg" class="no-plano-msg">
-          Selecciona un plano de la lista
-        </div>
+        <div id="no-plano-msg" class="no-plano-msg">Selecciona un plano de la lista</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ───── FOTOS SECTION ───── -->
-<section id="section-fotos" class="section">
-  <div class="fotos-toolbar">
-    <label class="upload-btn">
-      + Agregar fotos
-      <input type="file" id="fotos-upload" accept="image/*" multiple hidden />
-    </label>
-    <span id="fotos-count" style="opacity:.6"></span>
+<!-- ───── DISEÑO (renders con muebles) ───── -->
+<section id="section-diseno" class="section gallery-section">
+  <div class="gallery-header">
+    <h2 class="gallery-title">🎨 Renders de Diseño</h2>
+    <div class="gallery-actions">
+      <span id="diseno-count" class="gallery-count"></span>
+      <label class="upload-btn">
+        + Agregar render
+        <input type="file" id="diseno-upload" accept="image/*" multiple hidden />
+      </label>
+    </div>
   </div>
-  <div id="fotos-grid" class="fotos-grid">
-    <div class="fotos-empty">Agrega fotos del proyecto con el botón de arriba</div>
-  </div>
+  <div id="diseno-grid" class="fotos-grid"></div>
+</section>
 
-  <!-- lightbox -->
-  <div id="lightbox" class="lightbox hidden">
-    <button id="lb-close" class="lb-close">✕</button>
-    <button id="lb-prev"  class="lb-nav lb-prev">❮</button>
-    <button id="lb-next"  class="lb-nav lb-next">❯</button>
-    <img id="lb-img" src="" alt="" />
-    <div id="lb-caption"></div>
+<!-- ───── AVANCE DE OBRA ───── -->
+<section id="section-obra" class="section gallery-section">
+  <div class="gallery-header">
+    <h2 class="gallery-title">🏗 Avance de Obra</h2>
+    <div class="gallery-actions">
+      <span id="obra-count" class="gallery-count"></span>
+      <label class="upload-btn">
+        + Agregar foto
+        <input type="file" id="obra-upload" accept="image/*" multiple hidden />
+      </label>
+    </div>
+  </div>
+  <div id="obra-grid" class="fotos-grid">
+    <!-- placeholder inline dentro del grid para que no se corte -->
+    <div id="obra-instrucciones" class="obra-instrucciones-grid">
+      <div class="obra-inst-icon">📁</div>
+      <h3>Agrega fotos de la construcción</h3>
+      <p>Sube tus fotos directamente a GitHub en la carpeta:</p>
+      <code>assets/photos/obra/</code>
+      <p>Formatos soportados: <strong>JPG · PNG · WEBP</strong></p>
+      <p class="obra-inst-note">El manifest se actualiza automáticamente — las fotos aparecen aquí en el siguiente deploy.</p>
+    </div>
   </div>
 </section>
+
+<!-- ───── LIGHTBOX COMPARTIDO ───── -->
+<div id="lightbox" class="lightbox hidden">
+  <button id="lb-close" class="lb-close">✕</button>
+  <button id="lb-prev"  class="lb-nav lb-prev">❮</button>
+  <button id="lb-next"  class="lb-nav lb-next">❯</button>
+  <img id="lb-img" src="" alt="" />
+  <div id="lb-caption"></div>
+</div>
 
 <script src="js/app.js"></script>
 <script type="module" src="vendor/viewer3d.bundle.js"></script>

@@ -1,0 +1,52 @@
+name: Actualizar manifests de fotos
+
+# Se dispara cuando subes fotos a las carpetas de la galería
+on:
+  push:
+    paths:
+      - 'assets/photos/diseno/**'
+      - 'assets/photos/obra/**'
+  workflow_dispatch:   # también se puede lanzar manualmente desde Actions
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerar manifests
+        run: |
+          python3 - << 'EOF'
+          import json, os
+
+          folders = [
+            'assets/photos/diseno',
+            'assets/photos/obra',
+          ]
+          exts = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+
+          for folder in folders:
+            if not os.path.isdir(folder):
+              continue
+            files = sorted(
+              f for f in os.listdir(folder)
+              if os.path.splitext(f)[1].lower() in exts
+            )
+            manifest_path = os.path.join(folder, 'manifest.json')
+            with open(manifest_path, 'w') as fh:
+              json.dump(files, fh, indent=2)
+            print(f"✓ {manifest_path}  ({len(files)} archivos)")
+          EOF
+
+      - name: Commit si hubo cambios
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/photos/diseno/manifest.json \
+                  assets/photos/obra/manifest.json   2>/dev/null || true
+          git diff --staged --quiet || \
+            git commit -m "ci: auto-actualizar manifests de fotos"
+          git push
