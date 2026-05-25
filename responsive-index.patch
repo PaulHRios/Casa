@@ -1,0 +1,15 @@
+diff --git a/index.html b/index.html
+--- a/index.html
++++ b/index.html
+@@ -2,11 +2,12 @@
+ <html lang="es">
+ <head>
+   <meta charset="UTF-8" />
+-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+   <title>Proyecto Casa — Visualizador</title>
+   <meta name="description" content="Visualizador interactivo del proyecto: modelo 3D, planos acotados, renders y avance de obra." />
+   <link rel="stylesheet" href="css/style.css" />
++  <link rel="stylesheet" href="css/responsive.css" />
+   <script src="vendor/pdf.min.js"></script>
+ </head>
