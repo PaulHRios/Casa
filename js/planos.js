@@ -18,6 +18,8 @@
   let currentPage = 1;
   let planos      = [];   // { name, type:'pdf'|'img', data:url|arrayBuffer }
   let activeIdx   = -1;
+  let renderTask  = null;
+  let resizeTimer = null;
 
   function prettify(filename) {
     return filename
@@ -26,17 +28,69 @@
       .replace(/\b\w/g, c => c.toUpperCase());
   }
 
+  function getCanvasFitWidth() {
+    const style = getComputedStyle(scrollWrap);
+    const padX =
+      parseFloat(style.paddingLeft || 0) +
+      parseFloat(style.paddingRight || 0);
+
+    return Math.max(240, scrollWrap.clientWidth - padX - 6);
+  }
+
+  function fitPdfToWidth(page) {
+    const vp = page.getViewport({ scale: 1 });
+    const availableWidth = getCanvasFitWidth();
+    const nextScale = availableWidth / vp.width;
+
+    scale = Math.max(0.35, Math.min(nextScale, 3.5));
+  }
+
+  function isCompactLayout() {
+    return window.matchMedia('(max-width: 820px)').matches;
+  }
+
   /* ── Render PDF page ── */
-  async function renderPage(num) {
+  async function renderPage(num, options = {}) {
     if (!pdfDoc) return;
+
     currentPage = num;
-    const page    = await pdfDoc.getPage(num);
+    const page = await pdfDoc.getPage(num);
+
+    if (options.fit || isCompactLayout()) {
+      fitPdfToWidth(page);
+    }
+
     const viewport = page.getViewport({ scale });
-    const ctx     = pdfCanvas.getContext('2d');
-    pdfCanvas.width  = viewport.width;
-    pdfCanvas.height = viewport.height;
+    const ctx = pdfCanvas.getContext('2d');
+
+    if (renderTask) {
+      try { renderTask.cancel(); } catch (_) {}
+      renderTask = null;
+    }
+
+    pdfCanvas.width  = Math.floor(viewport.width);
+    pdfCanvas.height = Math.floor(viewport.height);
     pageInfo.textContent = `p. ${num} / ${pdfDoc.numPages}`;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    renderTask = page.render({ canvasContext: ctx, viewport });
+
+    try {
+      await renderTask.promise;
+    } catch (err) {
+      if (!err || err.name !== 'RenderingCancelledException') {
+        console.error(err);
+      }
+    } finally {
+      renderTask = null;
+    }
+  }
+
+  function rerenderCurrentPageAfterResize() {
+    if (!pdfDoc) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      renderPage(currentPage, { fit: isCompactLayout() });
+    }, 140);
   }
 
   /* ── Load entry ── */
@@ -56,18 +110,22 @@
 
     if (entry.type === 'pdf') {
       pdfCanvas.style.display = 'block';
+
       /* FIX: pdf.js puede transferir/vaciar el ArrayBuffer original.
          Siempre pasamos una COPIA para que el entry.data quede intacto
          y se pueda reabrir el mismo plano múltiples veces. */
       const safeData = entry.data instanceof Uint8Array
-        ? entry.data.slice()                            // ya es Uint8Array → copiar
-        : new Uint8Array(entry.data.slice(0));          // ArrayBuffer → copiar y envolver
+        ? entry.data.slice()
+        : new Uint8Array(entry.data.slice(0));
+
       pdfDoc = await pdfjsLib.getDocument({ data: safeData }).promise;
       currentPage = 1;
-      renderPage(1);
+      await renderPage(1, { fit: true });
     } else {
+      pdfDoc = null;
       imgViewer.src = entry.data;
       imgViewer.style.display = 'block';
+      imgViewer.style.width = isCompactLayout() ? '100%' : '';
     }
   }
 
@@ -75,6 +133,7 @@
   function addToList(entry, idx) {
     const li = document.createElement('li');
     li.textContent = entry.label || entry.name;
+    li.title = entry.label || entry.name;
     li.addEventListener('click', () => loadEntry(idx));
     list.appendChild(li);
   }
@@ -106,11 +165,9 @@
         };
         reader.readAsDataURL(file);
       } else if (isDXF) {
-        // DXF → show info message (conversion happens server-side or via tool)
         alert(`Archivo DXF detectado: "${name}"\n\nPara visualizar archivos .dxf como plano interactivo, exporta desde tu programa CAD a PDF y cárgalo aquí. El visualizador soporta PDF, PNG y JPG.`);
       }
     });
-    // prebuilt planos from assets/drawings are loaded at init
     e.target.value = '';
   });
 
@@ -119,17 +176,16 @@
     scale = Math.min(scale * 1.25, 8);
     if (pdfDoc) renderPage(currentPage);
   });
+
   document.getElementById('zoom-out').addEventListener('click', () => {
     scale = Math.max(scale / 1.25, 0.3);
     if (pdfDoc) renderPage(currentPage);
   });
+
   document.getElementById('zoom-fit').addEventListener('click', () => {
     if (pdfDoc) {
-      // fit to container width
-      const wrap = scrollWrap.clientWidth - 48;
       pdfDoc.getPage(currentPage).then(page => {
-        const vp = page.getViewport({ scale: 1 });
-        scale = wrap / vp.width;
+        fitPdfToWidth(page);
         renderPage(currentPage);
       });
     } else if (imgViewer.style.display !== 'none') {
@@ -141,6 +197,7 @@
   document.getElementById('prev-page').addEventListener('click', () => {
     if (pdfDoc && currentPage > 1) renderPage(currentPage - 1);
   });
+
   document.getElementById('next-page').addEventListener('click', () => {
     if (pdfDoc && currentPage < pdfDoc.numPages) renderPage(currentPage + 1);
   });
@@ -160,16 +217,27 @@
     }
   });
 
+  window.addEventListener('resize', rerenderCurrentPageAfterResize, { passive: true });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(rerenderCurrentPageAfterResize, 180);
+    setTimeout(rerenderCurrentPageAfterResize, 450);
+  }, { passive: true });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', rerenderCurrentPageAfterResize, { passive: true });
+  }
+
   /* ── Load prebuilt assets ── */
   async function loadPrebuiltPlanos() {
-    // Files listed in assets/drawings/manifest.json
     try {
       const resp = await fetch('assets/drawings/manifest.json');
       if (!resp.ok) return;
       const files = await resp.json();
+
       for (const f of files) {
         const r = await fetch('assets/drawings/' + f);
         if (!r.ok) continue;
+
         const isImg = /\.(png|jpe?g|webp)$/i.test(f);
         if (isImg) {
           const blob = await r.blob();
