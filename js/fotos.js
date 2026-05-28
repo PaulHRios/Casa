@@ -289,6 +289,8 @@
       card.setAttribute('role', 'button');
       card.setAttribute('aria-label', label);
       card.tabIndex = 0;
+      // Stagger entrance (Emil Kowalski skill): cap at 12 so late items don't lag
+      card.style.setProperty('--stagger-i', Math.min(idx, 12));
 
       const img = document.createElement('img');
       if (imgObserver) {

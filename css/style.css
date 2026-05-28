@@ -12,13 +12,30 @@
   --border: #2e3350;
   --radius: 10px;
   --nav-h: 60px;
+
+  /* ── Motion design tokens (Emil Kowalski) ──
+     Strong custom curves — built-in CSS easings lack punch.
+     Use ease-out for entering UI; ease-in-out for on-screen motion. */
+  --ease-out:     cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out:  cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer:  cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-tap:      120ms;
+  --dur-hover:    180ms;
+  --dur-popover:  220ms;
+  --dur-modal:    320ms;
 }
 
 html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+               'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  letter-spacing: -0.005em;
   overflow: hidden;
 }
 
@@ -48,10 +65,16 @@ html, body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all .15s;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
 .brand-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(79,142,247,.08); }
-.brand-tab:hover  { color: var(--text); }
+.brand-tab:active { transform: scale(0.94); }
+@media (hover: hover) and (pointer: fine) {
+  .brand-tab:hover { color: var(--text); }
+}
 
 .nav-tabs {
   display: flex;
@@ -71,14 +94,21 @@ html, body {
   border-radius: 20px;
   cursor: pointer;
   font-size: .9rem;
-  transition: all .2s;
+  font-weight: 500;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
   display: flex;
   align-items: center;
   gap: .4rem;
 }
 
-.tab-btn:hover  { border-color: var(--accent); color: var(--text); }
+.tab-btn:active { transform: scale(0.97); }
 .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+}
 
 /* ── SECTIONS ── */
 .section {
@@ -130,11 +160,18 @@ html, body {
   border-radius: 6px;
   cursor: pointer;
   font-size: .78rem;
+  font-weight: 500;
   white-space: nowrap;
-  transition: all .15s;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.tb-tab:hover  { color: var(--text); background: var(--surface2); }
+.tb-tab:active { transform: scale(0.96); }
 .tb-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(79,142,247,.08); }
+@media (hover: hover) and (pointer: fine) {
+  .tb-tab:hover { color: var(--text); background: var(--surface2); }
+}
 .tb-panel {
   display: none;
   flex-wrap: wrap;
@@ -150,11 +187,18 @@ html, body {
   border-radius: var(--radius);
   cursor: pointer;
   font-size: .85rem;
-  transition: all .2s;
+  font-weight: 500;
   white-space: nowrap;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.tool-btn:hover  { border-color: var(--accent); color: var(--accent); }
+.tool-btn:active { transform: scale(0.97); }
 .tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+}
 
 .measure-display {
   background: var(--surface2);
@@ -234,7 +278,7 @@ html, body {
   border: 3px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.9s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -248,11 +292,18 @@ html, body {
   border-radius: 6px;
   cursor: pointer;
   font-size: .8rem;
-  transition: all .15s;
+  font-weight: 500;
   white-space: nowrap;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.preset-btn:hover  { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+.preset-btn:active { transform: scale(0.96); }
 .preset-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .preset-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+}
 
 .hint-box {
   position: absolute;
@@ -476,12 +527,18 @@ html, body {
   cursor: pointer;
   font-size: .78rem;
   font-weight: 500;
-  transition: all .18s;
   white-space: nowrap;
   line-height: 1.5;
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.filter-chip:hover  { border-color: var(--accent); color: var(--text); }
+.filter-chip:active { transform: scale(0.96); }
 .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .filter-chip:hover { border-color: var(--accent); color: var(--text); }
+}
 
 /* ── Cuerpo scrollable de galería ── */
 .gallery-body {
@@ -528,14 +585,26 @@ html, body {
   position: relative;
   background: var(--surface2);
   border: 1px solid var(--border);
-  transition: transform .22s ease, box-shadow .22s, border-color .22s;
+  /* Subtle staged entrance — animates in once on load */
+  opacity: 0;
+  transform: translateY(8px);
+  animation: cardIn 420ms var(--ease-out) forwards;
+  animation-delay: calc(var(--stagger-i, 0) * 32ms);
+  transition: transform var(--dur-hover) var(--ease-out),
+              box-shadow var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out);
 }
-.foto-card:hover {
-  transform: scale(1.025);
-  border-color: rgba(79,142,247,.55);
-  box-shadow: 0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(79,142,247,.18);
-  z-index: 2;
-  position: relative;
+.foto-card:active { transform: scale(0.985); }
+@media (hover: hover) and (pointer: fine) {
+  .foto-card:hover {
+    transform: scale(1.025);
+    border-color: rgba(79,142,247,.55);
+    box-shadow: 0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(79,142,247,.18);
+    z-index: 2;
+  }
+}
+@keyframes cardIn {
+  to { opacity: 1; transform: translateY(0); }
 }
 .foto-card img {
   width: 100%;
@@ -607,8 +676,17 @@ html, body {
   z-index: 999;
   display: flex;
   flex-direction: column;
+  animation: lbBackdropIn 220ms var(--ease-out);
 }
 .lightbox.hidden { display: none; }
+.lightbox img {
+  animation: lbImgIn 260ms var(--ease-out);
+}
+@keyframes lbBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lbImgIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
 
 /* top bar */
 .lb-topbar {
@@ -623,10 +701,14 @@ html, body {
   color: rgba(255,255,255,.6);
   font-size: 1.5rem;
   cursor: pointer;
-  transition: color .18s;
   line-height: 1; padding: 0;
+  transition: color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.lb-close:hover { color: #fff; }
+.lb-close:active { transform: scale(0.92); }
+@media (hover: hover) and (pointer: fine) {
+  .lb-close:hover { color: #fff; }
+}
 .lb-counter {
   color: rgba(255,255,255,.4);
   font-size: .82rem;
@@ -662,10 +744,15 @@ html, body {
   padding: .7rem .85rem;
   border-radius: 8px;
   cursor: pointer;
-  transition: background .18s, border-color .18s;
   line-height: 1;
+  transition: background-color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
 }
-.lb-nav:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.3); }
+.lb-nav:active { transform: translateY(-50%) scale(0.94); }
+@media (hover: hover) and (pointer: fine) {
+  .lb-nav:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.3); }
+}
 .lb-prev { left: .6rem; }
 .lb-next { right: .6rem; }
 
@@ -705,10 +792,15 @@ html, body {
   cursor: pointer;
   border: 2px solid transparent;
   opacity: .45;
-  transition: opacity .18s, border-color .18s, transform .15s;
+  transition: opacity var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-hover) var(--ease-out);
 }
-.lb-thumb:hover  { opacity: .75; transform: scale(1.06); }
+.lb-thumb:active { transform: scale(0.96); }
 .lb-thumb.active { border-color: var(--accent); opacity: 1; transform: scale(1.08); }
+@media (hover: hover) and (pointer: fine) {
+  .lb-thumb:hover { opacity: .75; transform: scale(1.06); }
+}
 .lb-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* ── Scrollbar global ── */
@@ -1112,3 +1204,48 @@ html, body { overflow-x: hidden; }
   .gallery-body { padding: 1rem .75rem 3rem; }
   .fotos-masonry { columns: 2 120px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   FOCUS & ACCESSIBILITY  (Emil Kowalski skill)
+   • Keyboard users get a visible focus ring (mouse/touch don't)
+   • prefers-reduced-motion: keep opacity/color, remove movement
+══════════════════════════════════════════════════════════ */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.tab-btn:focus-visible,
+.brand-tab:focus-visible,
+.tb-tab:focus-visible,
+.tool-btn:focus-visible,
+.preset-btn:focus-visible,
+.filter-chip:focus-visible,
+.upload-btn:focus-visible {
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep opacity-only fades; remove movement/scale */
+  .foto-card { transform: none !important; opacity: 1 !important; }
+  .lightbox img { transform: none !important; }
+  .spinner { animation-duration: 1.2s !important; } /* keep visible */
+}
+
+/* ══════════════════════════════════════════════════════════
+   UPLOAD BUTTON  — restore press feedback after token refresh
+══════════════════════════════════════════════════════════ */
+.upload-btn {
+  transition: color var(--dur-hover) var(--ease-out),
+              border-color var(--dur-hover) var(--ease-out),
+              background-color var(--dur-hover) var(--ease-out),
+              transform var(--dur-tap) var(--ease-out);
+}
+.upload-btn:active { transform: scale(0.97); }
